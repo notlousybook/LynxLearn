@@ -4,6 +4,7 @@ Ordinary Least Squares Linear Regression.
 
 import numpy as np
 from scipy import stats
+
 from ._base import BaseRegressor
 
 
@@ -16,8 +17,9 @@ class LinearRegression(BaseRegressor):
 
     Parameters
     ----------
-    fit_intercept : bool, default=True
+    learn_bias : bool, default=True
         Whether to learn the bias/intercept term. Usually keep this True.
+        (Also accepts `fit_intercept` for backward compatibility)
     copy_X : bool, default=True
         If True, X will be copied; else, it may be overwritten.
     positive : bool, default=False
@@ -65,9 +67,15 @@ class LinearRegression(BaseRegressor):
     >>> score = model.evaluate(X_test, y_test)
     """
 
-    def __init__(self, fit_intercept=True, copy_X=True, positive=False):
+    def __init__(
+        self, learn_bias=True, copy_X=True, positive=False, fit_intercept=None
+    ):
         super().__init__()
-        self.fit_intercept = fit_intercept
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.copy_X = copy_X
         self.positive = positive
 
@@ -154,11 +162,10 @@ class LinearRegression(BaseRegressor):
         except:
             self.std_errors_ = np.full(self.n_features_in_, np.nan)
 
-        if self.fit_intercept:
+        # Use np.divide to handle division by zero gracefully
+        with np.errstate(divide="ignore", invalid="ignore"):
             t_values = self.coef_ / self.std_errors_
-        else:
-            t_values = self.coef_ / self.std_errors_
-        self.t_values_ = t_values
+        self.t_values_ = np.nan_to_num(t_values, nan=0.0, posinf=0.0, neginf=0.0)
 
         df = n - p
         self.p_values_ = (
@@ -171,9 +178,11 @@ class LinearRegression(BaseRegressor):
         self.leverage_ = np.diag(H)
 
         mse_res = np.sum(residuals**2) / (n - p) if n > p else 0
-        self.cooks_distance_ = (residuals**2 / (p * mse_res)) * (
-            self.leverage_ / (1 - self.leverage_) ** 2
-        )
+        # Use np.errstate to handle division by zero gracefully
+        with np.errstate(divide="ignore", invalid="ignore"):
+            self.cooks_distance_ = (residuals**2 / (p * mse_res)) * (
+                self.leverage_ / (1 - self.leverage_) ** 2
+            )
         self.cooks_distance_ = np.nan_to_num(
             self.cooks_distance_, nan=0.0, posinf=0.0, neginf=0.0
         )

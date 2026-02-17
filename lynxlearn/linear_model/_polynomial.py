@@ -2,8 +2,10 @@
 Polynomial Regression using basis expansion.
 """
 
-import numpy as np
 from itertools import combinations_with_replacement
+
+import numpy as np
+
 from ._base import BaseRegressor
 from ._ols import LinearRegression
 
@@ -40,8 +42,8 @@ class PolynomialFeatures:
         self.n_input_features_ = X.shape[1]
         # Calculate number of combinations: C(n+d, d) where n=n_features, d=degree
         self.n_output_features_ = int(
-            np.prod([self.n_input_features_ + i for i in range(1, self.degree + 1)]) /
-            np.prod(range(1, self.degree + 1))
+            np.prod([self.n_input_features_ + i for i in range(1, self.degree + 1)])
+            / np.prod(range(1, self.degree + 1))
         )
         if self.include_bias:
             self.n_output_features_ += 1
@@ -77,6 +79,15 @@ class PolynomialFeatures:
         """Fit and transform in one step."""
         return self.fit(X).transform(X)
 
+    # Beginner-friendly aliases
+    def prepare(self, X):
+        """Prepare the transformer (alias for fit)."""
+        return self.fit(X)
+
+    def prepare_and_transform(self, X):
+        """Prepare and transform in one step (alias for fit_transform)."""
+        return self.fit_transform(X)
+
 
 class PolynomialRegression(BaseRegressor):
     """
@@ -97,12 +108,18 @@ class PolynomialRegression(BaseRegressor):
         The underlying linear regression model.
     """
 
-    def __init__(self, degree=2, fit_intercept=True):
+    def __init__(self, degree=2, learn_bias=True, fit_intercept=None):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.degree = degree
-        self.fit_intercept = fit_intercept
-        self.poly_transformer = PolynomialFeatures(degree=degree, include_bias=not fit_intercept)
-        self.linear_model = LinearRegression(fit_intercept=fit_intercept)
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
+        self.poly_transformer = PolynomialFeatures(
+            degree=degree, include_bias=not learn_bias
+        )
+        self.linear_model = LinearRegression(fit_intercept=learn_bias)
 
     def train(self, X, y):
         """
@@ -124,10 +141,10 @@ class PolynomialRegression(BaseRegressor):
         y = np.asarray(y)
 
         # Transform to polynomial features
-        X_poly = self.poly_transformer.fit_transform(X)
+        X_poly = self.poly_transformer.prepare_and_transform(X)
 
-        # Fit linear regression on transformed features
-        self.linear_model.fit(X_poly, y)
+        # Train linear regression on transformed features
+        self.linear_model.train(X_poly, y)
 
         # Store parameters
         self.weights = self.linear_model.weights

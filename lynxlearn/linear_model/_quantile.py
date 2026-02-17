@@ -3,6 +3,7 @@ Quantile Regression - Regression for specific quantiles.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -23,8 +24,9 @@ class QuantileRegressor(BaseRegressor):
         Maximum iterations.
     tol : float, default=1e-4
         Convergence tolerance.
-    fit_intercept : bool, default=True
-        Whether to fit intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -36,13 +38,25 @@ class QuantileRegressor(BaseRegressor):
         Actual iterations.
     """
 
-    def __init__(self, quantile=0.5, alpha=0.0, max_iter=1000, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self,
+        quantile=0.5,
+        alpha=0.0,
+        max_iter=1000,
+        tol=1e-4,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.quantile = quantile
         self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.n_iter_ = 0
 
     def _pinball_loss_gradient(self, residuals):
@@ -77,7 +91,7 @@ class QuantileRegressor(BaseRegressor):
 
         # Simple gradient descent with subgradients
         learning_rate = 0.01
-        best_loss = float('inf')
+        best_loss = float("inf")
         patience = 50
         patience_counter = 0
 
@@ -99,11 +113,14 @@ class QuantileRegressor(BaseRegressor):
                 # All residuals positive
                 grad_weights = -np.mean(X * self.quantile, axis=0)
             else:
-                grad_weights = -np.mean(X[mask_positive] * self.quantile, axis=0) \
-                               - np.mean(X[~mask_positive] * (self.quantile - 1), axis=0)
+                grad_weights = -np.mean(
+                    X[mask_positive] * self.quantile, axis=0
+                ) - np.mean(X[~mask_positive] * (self.quantile - 1), axis=0)
 
             if self.fit_intercept:
-                grad_bias = -np.mean(np.where(mask_positive, self.quantile, self.quantile - 1))
+                grad_bias = -np.mean(
+                    np.where(mask_positive, self.quantile, self.quantile - 1)
+                )
 
             # Add L1 regularization subgradient
             if self.alpha > 0:
@@ -115,9 +132,13 @@ class QuantileRegressor(BaseRegressor):
                 self.bias -= learning_rate * grad_bias
 
             # Compute loss for early stopping
-            loss = np.mean(np.where(residuals >= 0,
-                                   self.quantile * residuals,
-                                   (self.quantile - 1) * residuals))
+            loss = np.mean(
+                np.where(
+                    residuals >= 0,
+                    self.quantile * residuals,
+                    (self.quantile - 1) * residuals,
+                )
+            )
 
             if loss < best_loss - self.tol:
                 best_loss = loss

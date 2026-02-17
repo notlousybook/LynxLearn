@@ -3,6 +3,7 @@ Stochastic Gradient Descent Regressor.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -32,8 +33,9 @@ class SGDRegressor(BaseRegressor):
         Penalty to use: 'l2', 'l1', or 'elasticnet'.
     l1_ratio : float, default=0.15
         Elastic Net mixing parameter (only used when penalty='elasticnet').
-    fit_intercept : bool, default=True
-        Whether to fit the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
     shuffle : bool, default=True
         Whether to shuffle training data before each epoch.
     random_state : int, default=None
@@ -51,19 +53,23 @@ class SGDRegressor(BaseRegressor):
 
     def __init__(
         self,
-        learning_rate='invscaling',
+        learning_rate="invscaling",
         eta0=0.01,
         power_t=0.25,
         max_iter=1000,
         tol=1e-3,
         alpha=0.0001,
-        penalty='l2',
+        penalty="l2",
         l1_ratio=0.15,
-        fit_intercept=True,
+        learn_bias=True,
+        fit_intercept=None,
         shuffle=True,
         random_state=None,
     ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.learning_rate = learning_rate
         self.eta0 = eta0
         self.power_t = power_t
@@ -72,7 +78,8 @@ class SGDRegressor(BaseRegressor):
         self.alpha = alpha
         self.penalty = penalty
         self.l1_ratio = l1_ratio
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.shuffle = shuffle
         self.random_state = random_state
         self.n_iter_ = 0
@@ -81,11 +88,11 @@ class SGDRegressor(BaseRegressor):
         """Compute learning rate at iteration t."""
         if isinstance(self.learning_rate, (int, float)):
             return float(self.learning_rate)
-        elif self.learning_rate == 'constant':
+        elif self.learning_rate == "constant":
             return self.eta0
-        elif self.learning_rate == 'invscaling':
-            return self.eta0 / (t ** self.power_t)
-        elif self.learning_rate == 'adaptive':
+        elif self.learning_rate == "invscaling":
+            return self.eta0 / (t**self.power_t)
+        elif self.learning_rate == "adaptive":
             # Simplified adaptive learning rate
             return self.eta0
         else:
@@ -134,7 +141,7 @@ class SGDRegressor(BaseRegressor):
         alpha_l2 = self.alpha * (1 - self.l1_ratio)
 
         # Training loop
-        prev_loss = float('inf')
+        prev_loss = float("inf")
         no_improvement_count = 0
 
         for epoch in range(self.max_iter):
@@ -166,16 +173,16 @@ class SGDRegressor(BaseRegressor):
                 grad_b = error
 
                 # Add L2 regularization
-                if self.penalty in ['l2', 'elasticnet']:
+                if self.penalty in ["l2", "elasticnet"]:
                     grad_w += alpha_l2 * self.weights
 
                 # Update weights
-                if self.penalty == 'l1':
+                if self.penalty == "l1":
                     # Proximal gradient for L1
                     self.weights = self._soft_threshold(
                         self.weights - lr * grad_w, lr * alpha_l1
                     )
-                elif self.penalty == 'elasticnet':
+                elif self.penalty == "elasticnet":
                     # Elastic Net
                     self.weights = self._soft_threshold(
                         self.weights - lr * grad_w, lr * alpha_l1
@@ -188,16 +195,17 @@ class SGDRegressor(BaseRegressor):
                     self.bias -= lr * grad_b
 
                 # Accumulate loss
-                epoch_loss += 0.5 * error ** 2
+                epoch_loss += 0.5 * error**2
 
             # Add regularization to loss
-            if self.penalty == 'l2':
-                epoch_loss += 0.5 * alpha_l2 * np.sum(self.weights ** 2)
-            elif self.penalty == 'l1':
+            if self.penalty == "l2":
+                epoch_loss += 0.5 * alpha_l2 * np.sum(self.weights**2)
+            elif self.penalty == "l1":
                 epoch_loss += alpha_l1 * np.sum(np.abs(self.weights))
-            elif self.penalty == 'elasticnet':
-                epoch_loss += (0.5 * alpha_l2 * np.sum(self.weights ** 2) +
-                              alpha_l1 * np.sum(np.abs(self.weights)))
+            elif self.penalty == "elasticnet":
+                epoch_loss += 0.5 * alpha_l2 * np.sum(
+                    self.weights**2
+                ) + alpha_l1 * np.sum(np.abs(self.weights))
 
             # Check convergence
             if np.abs(prev_loss - epoch_loss) < self.tol:
@@ -215,5 +223,7 @@ class SGDRegressor(BaseRegressor):
         return self
 
     def __repr__(self):
-        return (f"SGDRegressor(learning_rate={self.learning_rate}, "
-                f"alpha={self.alpha}, penalty={self.penalty})")
+        return (
+            f"SGDRegressor(learning_rate={self.learning_rate}, "
+            f"alpha={self.alpha}, penalty={self.penalty})"
+        )

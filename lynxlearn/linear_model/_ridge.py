@@ -17,8 +17,9 @@ class Ridge(BaseRegressor):
     ----------
     alpha : float, default=1.0
         Regularization strength. Larger = simpler model (less overfitting).
-    fit_intercept : bool, default=True
+    learn_bias : bool, default=True
         Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Examples
     --------
@@ -28,10 +29,14 @@ class Ridge(BaseRegressor):
     >>> predictions = model.predict(X_test)
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True):
+    def __init__(self, alpha=1.0, learn_bias=True, fit_intercept=None):
         super().__init__()
         self.alpha = alpha
-        self.fit_intercept = fit_intercept
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
 
     def train(self, X, y):
         """

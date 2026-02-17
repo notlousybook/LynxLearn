@@ -3,6 +3,7 @@ Linear Regression using Gradient Descent.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -21,8 +22,9 @@ class GradientDescentRegressor(BaseRegressor):
         Maximum training steps.
     tolerance : float, default=1e-6
         Stop early if improvement is smaller than this.
-    fit_intercept : bool, default=True
+    learn_bias : bool, default=True
         Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -47,13 +49,18 @@ class GradientDescentRegressor(BaseRegressor):
         learning_rate=0.01,
         n_iterations=1000,
         tolerance=1e-6,
-        fit_intercept=True,
+        learn_bias=True,
+        fit_intercept=None,
     ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.learning_rate = learning_rate
         self.n_iterations = n_iterations
         self.tolerance = tolerance
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.cost_history = []
         self.n_iter_ = 0
 

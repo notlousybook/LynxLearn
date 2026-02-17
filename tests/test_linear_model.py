@@ -44,7 +44,7 @@ class TestLinearRegression:
         X, y, true_weights, true_bias = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -65,7 +65,7 @@ class TestLinearRegression:
         X, y, true_weights, true_bias = multi_feature_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert len(model.weights) == 5
         assert np.allclose(model.weights, true_weights, atol=0.5)
@@ -76,7 +76,7 @@ class TestLinearRegression:
         X, y, true_weights, true_bias = simple_regression_data
 
         model = LinearRegression(fit_intercept=False)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.bias == 0.0
 
@@ -85,7 +85,7 @@ class TestLinearRegression:
         X_train, X_test, y_train, y_test, _, _ = train_test_data
 
         model = LinearRegression()
-        model.fit(X_train, y_train)
+        model.train(X_train, y_train)
         score = model.score(X_test, y_test)
 
         assert 0 < score <= 1.0
@@ -95,7 +95,7 @@ class TestLinearRegression:
         X_train, X_test, y_train, y_test, _, _ = train_test_data
 
         model = LinearRegression()
-        model.fit(X_train, y_train)
+        model.train(X_train, y_train)
 
         score1 = model.score(X_test, y_test)
         score2 = model.evaluate(X_test, y_test)
@@ -107,7 +107,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
         params = model.get_params()
 
         assert "weights" in params
@@ -127,7 +127,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert hasattr(model, "coef_")
         assert hasattr(model, "intercept_")
@@ -143,7 +143,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert hasattr(model, "std_errors_")
         assert hasattr(model, "t_values_")
@@ -159,7 +159,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         ci = model.confidence_intervals()
         assert ci.shape == (X.shape[1], 2)
@@ -170,7 +170,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         residuals = model.residuals()
         assert len(residuals) == len(y)
@@ -181,7 +181,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert hasattr(model, "leverage_")
         assert hasattr(model, "cooks_distance_")
@@ -195,7 +195,7 @@ class TestLinearRegression:
         X, y, _, _ = multi_feature_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         vif = model.vif()
         assert len(vif) == X.shape[1]
@@ -206,7 +206,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert hasattr(model, "r2_")
         assert hasattr(model, "adj_r2_")
@@ -223,7 +223,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         pred, lower, upper = model.predict_interval(X)
         assert len(pred) == len(y)
@@ -238,7 +238,7 @@ class TestLinearRegression:
         X_original = X.copy()
 
         model = LinearRegression(copy_X=True)
-        model.fit(X, y)
+        model.train(X, y)
         assert np.allclose(X, X_original)
 
     def test_positive_constraint(self):
@@ -248,7 +248,7 @@ class TestLinearRegression:
         y = np.abs(X @ np.array([2, 1, 0.5])) + np.random.randn(100) * 0.1
 
         model = LinearRegression(positive=True)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert np.all(model.coef_ >= -1e-10)
 
@@ -257,7 +257,7 @@ class TestLinearRegression:
         X, y, _, _ = simple_regression_data
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         model.summary_stats()
 
@@ -272,7 +272,7 @@ class TestGradientDescentRegressor:
         model = GradientDescentRegressor(
             learning_rate=0.01, n_iterations=1000, tolerance=1e-6
         )
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -285,7 +285,7 @@ class TestGradientDescentRegressor:
         X, y, _, _ = simple_regression_data
 
         model = GradientDescentRegressor(learning_rate=0.01, n_iterations=500)
-        model.fit(X, y)
+        model.train(X, y)
 
         initial_cost = model.cost_history[0]
         final_cost = model.cost_history[-1]
@@ -299,7 +299,7 @@ class TestGradientDescentRegressor:
         model = GradientDescentRegressor(
             learning_rate=0.01, n_iterations=2000, tolerance=1e-8
         )
-        model.fit(X, y)
+        model.train(X, y)
 
         # Should converge before max iterations
         assert model.n_iter_ < 2000
@@ -316,7 +316,7 @@ class TestGradientDescentRegressor:
 
         # Use extremely high learning rate to force divergence
         model = GradientDescentRegressor(learning_rate=10.0, n_iterations=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         # Cost should increase or become NaN with very high learning rate
         final_cost = model.cost_history[-1]
@@ -334,7 +334,7 @@ class TestRidge:
         X, y, true_weights, true_bias = simple_regression_data
 
         model = Ridge(alpha=1.0)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -345,10 +345,10 @@ class TestRidge:
         X, y, _, _ = multi_feature_data
 
         model_low = Ridge(alpha=0.01)
-        model_low.fit(X, y)
+        model_low.train(X, y)
 
         model_high = Ridge(alpha=100.0)
-        model_high.fit(X, y)
+        model_high.train(X, y)
 
         # Higher alpha should result in smaller weights
         assert np.linalg.norm(model_high.weights) < np.linalg.norm(model_low.weights)
@@ -358,10 +358,10 @@ class TestRidge:
         X, y, _, _ = simple_regression_data
 
         ridge = Ridge(alpha=0.0)
-        ridge.fit(X, y)
+        ridge.train(X, y)
 
         ols = LinearRegression()
-        ols.fit(X, y)
+        ols.train(X, y)
 
         # Should be very close (numerical differences may exist)
         assert np.allclose(ridge.weights, ols.weights, atol=1e-10)
@@ -376,7 +376,7 @@ class TestLasso:
         X, y, _, _ = simple_regression_data
 
         model = Lasso(alpha=0.1)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -394,7 +394,7 @@ class TestLasso:
         y = X @ true_weights + np.random.randn(n_samples) * 0.1
 
         model = Lasso(alpha=0.5)
-        model.fit(X, y)
+        model.train(X, y)
 
         # Many weights should be zero
         n_zero = np.sum(np.abs(model.weights) < 1e-5)
@@ -407,10 +407,10 @@ class TestLasso:
         y = X @ np.array([1, 2, 3, 4, 5]) + np.random.randn(100) * 0.1
 
         model_low = Lasso(alpha=0.01)
-        model_low.fit(X, y)
+        model_low.train(X, y)
 
         model_high = Lasso(alpha=10.0)
-        model_high.fit(X, y)
+        model_high.train(X, y)
 
         n_nonzero_low = np.sum(np.abs(model_low.weights) > 1e-5)
         n_nonzero_high = np.sum(np.abs(model_high.weights) > 1e-5)
@@ -426,7 +426,7 @@ class TestElasticNet:
         X, y, _, _ = simple_regression_data
 
         model = ElasticNet(alpha=0.1, l1_ratio=0.5)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -438,7 +438,7 @@ class TestElasticNet:
 
         # ElasticNet with l1_ratio=0 should be L2 only (no feature selection)
         elastic = ElasticNet(alpha=0.1, l1_ratio=0.0, max_iter=2000, tol=1e-6)
-        elastic.fit(X, y)
+        elastic.train(X, y)
 
         # With pure L2, all weights should be non-zero (no sparsity)
         n_nonzero = np.sum(np.abs(elastic.weights) > 1e-10)
@@ -448,7 +448,7 @@ class TestElasticNet:
 
         # Should shrink weights compared to OLS
         ols = LinearRegression()
-        ols.fit(X, y)
+        ols.train(X, y)
         assert np.linalg.norm(elastic.weights) < np.linalg.norm(ols.weights)
 
     def test_l1_ratio_one_equals_lasso(self, multi_feature_data):
@@ -456,10 +456,10 @@ class TestElasticNet:
         X, y, _, _ = multi_feature_data
 
         elastic = ElasticNet(alpha=0.1, l1_ratio=1.0, max_iter=2000)
-        elastic.fit(X, y)
+        elastic.train(X, y)
 
         lasso = Lasso(alpha=0.1, max_iter=2000)
-        lasso.fit(X, y)
+        lasso.train(X, y)
 
         # Should be close
         assert np.allclose(elastic.weights, lasso.weights, atol=0.1)
@@ -473,7 +473,7 @@ class TestPolynomialRegression:
         X, y, _, _ = simple_regression_data
 
         model = PolynomialRegression(degree=2)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -486,12 +486,12 @@ class TestPolynomialRegression:
         y = X.flatten() ** 3 + np.random.randn(100) * 0.5
 
         model_linear = PolynomialRegression(degree=1)
-        model_linear.fit(X, y)
+        model_linear.train(X, y)
         y_pred_linear = model_linear.predict(X)
         mse_linear = np.mean((y - y_pred_linear) ** 2)
 
         model_cubic = PolynomialRegression(degree=3)
-        model_cubic.fit(X, y)
+        model_cubic.train(X, y)
         y_pred_cubic = model_cubic.predict(X)
         mse_cubic = np.mean((y - y_pred_cubic) ** 2)
 
@@ -538,7 +538,7 @@ class TestHuberRegressor:
         X, y, _, _ = simple_regression_data
 
         model = HuberRegressor(epsilon=1.35)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -555,10 +555,10 @@ class TestHuberRegressor:
         y[1] -= 50
 
         ols = LinearRegression()
-        ols.fit(X, y)
+        ols.train(X, y)
 
         huber = HuberRegressor(epsilon=1.35)
-        huber.fit(X, y)
+        huber.train(X, y)
 
         # Huber should be closer to true weights (2.0) than OLS
         assert np.abs(huber.weights[0] - 2.0) < np.abs(ols.weights[0] - 2.0)
@@ -572,7 +572,7 @@ class TestQuantileRegressor:
         X, y, _, _ = simple_regression_data
 
         model = QuantileRegressor(quantile=0.5)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -585,10 +585,10 @@ class TestQuantileRegressor:
         y = 2 * X.flatten() + 1 + np.random.randn(100) * 2
 
         model_low = QuantileRegressor(quantile=0.1)
-        model_low.fit(X, y)
+        model_low.train(X, y)
 
         model_high = QuantileRegressor(quantile=0.9)
-        model_high.fit(X, y)
+        model_high.train(X, y)
 
         # Higher quantile should have higher predictions on average
         y_pred_low = model_low.predict(X)
@@ -605,7 +605,7 @@ class TestBayesianRidge:
         X, y, _, _ = simple_regression_data
 
         model = BayesianRidge()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -616,7 +616,7 @@ class TestBayesianRidge:
         X, y, _, _ = simple_regression_data
 
         model = BayesianRidge()
-        model.fit(X, y)
+        model.train(X, y)
 
         y_pred, y_std = model.predict(X, return_std=True)
 
@@ -633,7 +633,7 @@ class TestSGDRegressor:
         X, y, _, _ = simple_regression_data
 
         model = SGDRegressor(max_iter=100, learning_rate=0.01)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -644,7 +644,7 @@ class TestSGDRegressor:
         X, y, _, _ = simple_regression_data
 
         model = SGDRegressor(penalty="l1", alpha=0.1, max_iter=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         # With L1, some weights might be zero
         assert model.weights is not None
@@ -658,7 +658,7 @@ class TestLars:
         X, y, _, _ = simple_regression_data
 
         model = Lars(n_nonzero_coefs=1)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -674,7 +674,7 @@ class TestLassoLars:
         X, y, _, _ = simple_regression_data
 
         model = LassoLars(alpha=0.1)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -689,7 +689,7 @@ class TestOrthogonalMatchingPursuit:
         X, y, _, _ = simple_regression_data
 
         model = OrthogonalMatchingPursuit(n_nonzero_coefs=1)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -705,7 +705,7 @@ class TestRANSACRegressor:
         X, y, _, _ = simple_regression_data
 
         model = RANSACRegressor(max_trials=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -723,10 +723,10 @@ class TestRANSACRegressor:
         y[1] -= 50
 
         ransac = RANSACRegressor(max_trials=50)
-        ransac.fit(X, y)
+        ransac.train(X, y)
 
         ols = LinearRegression()
-        ols.fit(X, y)
+        ols.train(X, y)
 
         # RANSAC should be closer to true weights (2.0)
         assert np.abs(ransac.weights[0] - 2.0) < np.abs(ols.weights[0] - 2.0)
@@ -740,7 +740,7 @@ class TestTheilSenRegressor:
         X, y, _, _ = simple_regression_data
 
         model = TheilSenRegressor(n_subsamples=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -755,7 +755,7 @@ class TestARDRegression:
         X, y, _, _ = simple_regression_data
 
         model = ARDRegression(n_iter=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -771,7 +771,7 @@ class TestWeightedLeastSquares:
         X, y, _, _ = simple_regression_data
 
         model = WeightedLeastSquares()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -785,7 +785,7 @@ class TestWeightedLeastSquares:
         weights[:10] = 2.0  # Higher weight for first 10 samples
 
         model = WeightedLeastSquares(weights=weights)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model._is_trained
@@ -799,7 +799,7 @@ class TestGeneralizedLeastSquares:
         X, y, _, _ = simple_regression_data
 
         model = GeneralizedLeastSquares()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -814,7 +814,7 @@ class TestGeneralizedLinearModel:
         X, y, _, _ = simple_regression_data
 
         model = GeneralizedLinearModel(family="gaussian", max_iter=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -831,7 +831,7 @@ class TestPoissonRegressor:
         y = np.exp(2 * X.flatten() + 1)  # Poisson-like positive data
 
         model = PoissonRegressor(max_iter=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -848,7 +848,7 @@ class TestGammaRegressor:
         y = np.exp(2 * X.flatten() + 1)  # Positive data
 
         model = GammaRegressor(max_iter=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -865,7 +865,7 @@ class TestTweedieRegressor:
         y = np.exp(2 * X.flatten() + 1)  # Positive data
 
         model = TweedieRegressor(power=1.5, max_iter=50)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -880,7 +880,7 @@ class TestLinearSVR:
         X, y, _, _ = simple_regression_data
 
         model = LinearSVR(epsilon=0.1, C=1.0, max_iter=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights is not None
         assert model.bias is not None
@@ -897,7 +897,7 @@ class TestIsotonicRegression:
         y = X + np.random.randn(100) * 0.1
 
         model = IsotonicRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.X_thresholds_ is not None
         assert model.y_thresholds_ is not None
@@ -909,7 +909,7 @@ class TestIsotonicRegression:
         y = np.array([1, 3, 2, 4, 5])
 
         model = IsotonicRegression(increasing=True)
-        model.fit(X, y)
+        model.train(X, y)
 
         predictions = model.predict(X)
         # Predictions should be non-decreasing
@@ -926,7 +926,7 @@ class TestMultiTaskElasticNet:
         y = np.random.randn(100, 3)  # 3 tasks
 
         model = MultiTaskElasticNet(alpha=0.1, max_iter=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights.shape == (5, 3)
         assert model.bias.shape == (3,)
@@ -940,7 +940,7 @@ class TestMultiTaskElasticNet:
         X_test = np.random.randn(20, 5)
 
         model = MultiTaskElasticNet(alpha=0.1, max_iter=100)
-        model.fit(X_train, y_train)
+        model.train(X_train, y_train)
 
         predictions = model.predict(X_test)
         assert predictions.shape == (20, 3)
@@ -956,7 +956,7 @@ class TestMultiTaskLasso:
         y = np.random.randn(100, 3)  # 3 tasks
 
         model = MultiTaskLasso(alpha=0.1, max_iter=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         assert model.weights.shape == (5, 3)
         assert model.bias.shape == (3,)
@@ -970,7 +970,7 @@ class TestMultiTaskLasso:
         X_test = np.random.randn(20, 5)
 
         model = MultiTaskLasso(alpha=0.1, max_iter=100)
-        model.fit(X_train, y_train)
+        model.train(X_train, y_train)
 
         predictions = model.predict(X_test)
         assert predictions.shape == (20, 3)

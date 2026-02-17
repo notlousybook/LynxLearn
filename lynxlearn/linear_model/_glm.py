@@ -3,6 +3,7 @@ Generalized Linear Models (GLM) - Poisson, Gamma, Tweedie.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -25,8 +26,9 @@ class GeneralizedLinearModel(BaseRegressor):
         Maximum number of iterations.
     tol : float, default=1e-4
         Tolerance for convergence.
-    fit_intercept : bool, default=True
-        Whether to fit the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias/intercept term.
+        (Also accepts `fit_intercept` for backward compatibility)
     power : float, default=1.5
         Power parameter for Tweedie distribution (1 < power < 2).
 
@@ -42,21 +44,26 @@ class GeneralizedLinearModel(BaseRegressor):
 
     def __init__(
         self,
-        family='gaussian',
+        family="gaussian",
         link=None,
         alpha=0.0,
         max_iter=100,
         tol=1e-4,
-        fit_intercept=True,
+        learn_bias=True,
+        fit_intercept=None,
         power=1.5,
     ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.family = family
         self.link = link
         self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.power = power
         self.n_iter_ = 0
 
@@ -64,38 +71,46 @@ class GeneralizedLinearModel(BaseRegressor):
         """Get link and inverse link functions."""
         # Default to canonical links
         if self.link is None:
-            if self.family == 'gaussian':
-                link = 'identity'
-            elif self.family == 'poisson':
-                link = 'log'
-            elif self.family == 'gamma':
-                link = 'inverse'
-            elif self.family == 'tweedie':
-                link = 'log'
+            if self.family == "gaussian":
+                link = "identity"
+            elif self.family == "poisson":
+                link = "log"
+            elif self.family == "gamma":
+                link = "inverse"
+            elif self.family == "tweedie":
+                link = "log"
             else:
-                link = 'identity'
+                link = "identity"
         else:
             link = self.link
 
         # Define link functions
-        if link == 'identity':
+        if link == "identity":
+
             def link_func(eta):
                 return eta
+
             def inv_link_func(eta):
                 return eta
-        elif link == 'log':
+        elif link == "log":
+
             def link_func(mu):
                 return np.log(mu + 1e-10)
+
             def inv_link_func(eta):
                 return np.exp(eta)
-        elif link == 'inverse':
+        elif link == "inverse":
+
             def link_func(mu):
                 return 1.0 / (mu + 1e-10)
+
             def inv_link_func(eta):
                 return 1.0 / (eta + 1e-10)
-        elif link == 'logit':
+        elif link == "logit":
+
             def link_func(mu):
                 return np.log(mu / (1 - mu + 1e-10) + 1e-10)
+
             def inv_link_func(eta):
                 return 1.0 / (1 + np.exp(-eta))
         else:
@@ -105,40 +120,40 @@ class GeneralizedLinearModel(BaseRegressor):
 
     def _get_variance_function(self, mu):
         """Get variance function for the distribution."""
-        if self.family == 'gaussian':
+        if self.family == "gaussian":
             return np.ones_like(mu)
-        elif self.family == 'poisson':
+        elif self.family == "poisson":
             return mu
-        elif self.family == 'gamma':
-            return mu ** 2
-        elif self.family == 'tweedie':
-            return mu ** self.power
+        elif self.family == "gamma":
+            return mu**2
+        elif self.family == "tweedie":
+            return mu**self.power
         else:
             return np.ones_like(mu)
 
     def _get_derivative_link(self, eta):
         """Get derivative of inverse link function."""
         if self.link is None:
-            if self.family == 'gaussian':
-                link = 'identity'
-            elif self.family == 'poisson':
-                link = 'log'
-            elif self.family == 'gamma':
-                link = 'inverse'
-            elif self.family == 'tweedie':
-                link = 'log'
+            if self.family == "gaussian":
+                link = "identity"
+            elif self.family == "poisson":
+                link = "log"
+            elif self.family == "gamma":
+                link = "inverse"
+            elif self.family == "tweedie":
+                link = "log"
             else:
-                link = 'identity'
+                link = "identity"
         else:
             link = self.link
 
-        if link == 'identity':
+        if link == "identity":
             return np.ones_like(eta)
-        elif link == 'log':
+        elif link == "log":
             return np.exp(eta)
-        elif link == 'inverse':
-            return -1.0 / (eta ** 2 + 1e-10)
-        elif link == 'logit':
+        elif link == "inverse":
+            return -1.0 / (eta**2 + 1e-10)
+        elif link == "logit":
             exp_eta = np.exp(-eta)
             return exp_eta / ((1 + exp_eta) ** 2 + 1e-10)
         else:
@@ -166,7 +181,7 @@ class GeneralizedLinearModel(BaseRegressor):
         n_samples, n_features = X.shape
 
         # Ensure y is positive for certain distributions
-        if self.family in ['poisson', 'gamma', 'tweedie']:
+        if self.family in ["poisson", "gamma", "tweedie"]:
             y = np.maximum(y, 1e-10)
 
         # Get link functions
@@ -196,7 +211,7 @@ class GeneralizedLinearModel(BaseRegressor):
             # w = 1 / (V(mu) * (d(eta)/d(mu))^2)
             var = self._get_variance_function(mu)
             d_eta_d_mu = self._get_derivative_link(eta)
-            w = 1.0 / (var * d_eta_d_mu ** 2 + 1e-10)
+            w = 1.0 / (var * d_eta_d_mu**2 + 1e-10)
 
             # Weighted least squares update
             sqrt_w = np.sqrt(w)
@@ -261,13 +276,19 @@ class PoissonRegressor(GeneralizedLinearModel):
         Whether to fit the intercept.
     """
 
-    def __init__(self, alpha=0.0, max_iter=100, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self, alpha=0.0, max_iter=100, tol=1e-4, learn_bias=True, fit_intercept=None
+    ):
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         super().__init__(
-            family='poisson',
-            link='log',
+            family="poisson",
+            link="log",
             alpha=alpha,
             max_iter=max_iter,
             tol=tol,
+            learn_bias=learn_bias,
             fit_intercept=fit_intercept,
         )
 
@@ -294,13 +315,19 @@ class GammaRegressor(GeneralizedLinearModel):
         Whether to fit the intercept.
     """
 
-    def __init__(self, alpha=0.0, max_iter=100, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self, alpha=0.0, max_iter=100, tol=1e-4, learn_bias=True, fit_intercept=None
+    ):
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         super().__init__(
-            family='gamma',
-            link='inverse',
+            family="gamma",
+            link="inverse",
             alpha=alpha,
             max_iter=max_iter,
             tol=tol,
+            learn_bias=learn_bias,
             fit_intercept=fit_intercept,
         )
 
@@ -330,13 +357,25 @@ class TweedieRegressor(GeneralizedLinearModel):
         Whether to fit the intercept.
     """
 
-    def __init__(self, power=1.5, alpha=0.0, max_iter=100, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self,
+        power=1.5,
+        alpha=0.0,
+        max_iter=100,
+        tol=1e-4,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         super().__init__(
-            family='tweedie',
-            link='log',
+            family="tweedie",
+            link="log",
             alpha=alpha,
             max_iter=max_iter,
             tol=tol,
+            learn_bias=learn_bias,
             fit_intercept=fit_intercept,
             power=power,
         )

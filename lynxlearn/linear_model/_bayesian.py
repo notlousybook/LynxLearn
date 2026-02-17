@@ -3,6 +3,7 @@ Bayesian Linear Regression with automatic relevance determination.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -27,8 +28,9 @@ class BayesianRidge(BaseRegressor):
         Shape parameter for Gamma prior on lambda (precision of noise).
     lambda_2 : float, default=1e-6
         Rate parameter for Gamma prior on lambda.
-    fit_intercept : bool, default=True
-        Whether to fit the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias/intercept term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -44,16 +46,29 @@ class BayesianRidge(BaseRegressor):
         Covariance matrix of the posterior.
     """
 
-    def __init__(self, max_iter=300, tol=1e-3, alpha_1=1e-6, alpha_2=1e-6,
-                 lambda_1=1e-6, lambda_2=1e-6, fit_intercept=True):
+    def __init__(
+        self,
+        max_iter=300,
+        tol=1e-3,
+        alpha_1=1e-6,
+        alpha_2=1e-6,
+        lambda_1=1e-6,
+        lambda_2=1e-6,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.max_iter = max_iter
         self.tol = tol
         self.alpha_1 = alpha_1
         self.alpha_2 = alpha_2
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
 
     def train(self, X, y):
         """
@@ -102,15 +117,22 @@ class BayesianRidge(BaseRegressor):
             # Update hyperparameters using evidence maximization
             # Update alpha (weight precision)
             gamma = np.sum(lambda_prec * np.diag(sigma) / alpha)
-            alpha = (gamma + 2 * self.alpha_1) / (np.sum(self.weights ** 2) + 2 * self.alpha_2)
+            alpha = (gamma + 2 * self.alpha_1) / (
+                np.sum(self.weights**2) + 2 * self.alpha_2
+            )
 
             # Update lambda (noise precision)
             residuals = y_centered - X_centered @ self.weights
-            lambda_prec = (n_samples + 2 * self.lambda_1) / (np.sum(residuals ** 2) + 2 * self.lambda_2)
+            lambda_prec = (n_samples + 2 * self.lambda_1) / (
+                np.sum(residuals**2) + 2 * self.lambda_2
+            )
 
             # Check convergence
             if iteration > 0:
-                if abs(alpha - alpha_old) < self.tol and abs(lambda_prec - lambda_old) < self.tol:
+                if (
+                    abs(alpha - alpha_old) < self.tol
+                    and abs(lambda_prec - lambda_old) < self.tol
+                ):
                     break
 
             alpha_old = alpha
@@ -157,7 +179,9 @@ class BayesianRidge(BaseRegressor):
         if return_std:
             # Compute predictive variance
             X_centered = X - np.mean(X, axis=0) if self.fit_intercept else X
-            var = 1.0 / self.lambda_ + np.sum(X_centered @ self.sigma_ * X_centered, axis=1)
+            var = 1.0 / self.lambda_ + np.sum(
+                X_centered @ self.sigma_ * X_centered, axis=1
+            )
             return y_pred, np.sqrt(var)
 
         return y_pred

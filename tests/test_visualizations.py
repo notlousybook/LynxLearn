@@ -30,7 +30,7 @@ class TestBasicPlots:
         y = 2 * X.flatten() + 1 + np.random.randn(50) * 0.1
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         fig = visualizations.plot_regression(X, y, model)
 
@@ -44,7 +44,7 @@ class TestBasicPlots:
         y = 2 * X.flatten() + 1 + np.random.randn(50) * 0.1
 
         model = GradientDescentRegressor(n_iterations=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         fig = visualizations.plot_cost_history(model)
 
@@ -75,10 +75,10 @@ class TestBasicPlots:
         y = X @ [1, 2, 3] + np.random.randn(50) * 0.1
 
         model1 = LinearRegression()
-        model1.fit(X, y)
+        model1.train(X, y)
 
         model2 = Ridge(alpha=1.0)
-        model2.fit(X, y)
+        model2.train(X, y)
 
         models = {"OLS": model1, "Ridge": model2}
 
@@ -94,10 +94,10 @@ class TestBasicPlots:
         y = X @ [1, 2] + np.random.randn(50) * 0.1
 
         model1 = LinearRegression()
-        model1.fit(X, y)
+        model1.train(X, y)
 
         model2 = Ridge(alpha=1.0)
-        model2.fit(X, y)
+        model2.train(X, y)
 
         models = {"OLS": model1, "Ridge": model2}
 
@@ -117,7 +117,7 @@ class TestComprehensiveVisualizations:
         y = 2 * X.flatten() + 1 + np.random.randn(50) * 0.1
 
         model = LinearRegression()
-        model.fit(X, y)
+        model.train(X, y)
 
         fig = visualizations.visualize_1d_regression(X, y, model)
 
@@ -141,7 +141,7 @@ class TestComprehensiveVisualizations:
         y = 2 * X.flatten() + 1 + np.random.randn(50) * 0.1
 
         model = GradientDescentRegressor(n_iterations=100)
-        model.fit(X, y)
+        model.train(X, y)
 
         fig = visualizations.visualize_gradient_descent(X, y, model)
 
@@ -174,10 +174,10 @@ class TestComprehensiveVisualizations:
         y_train, y_test = y[:80], y[80:]
 
         model1 = LinearRegression()
-        model1.fit(X_train, y_train)
+        model1.train(X_train, y_train)
 
         model2 = Ridge(alpha=1.0)
-        model2.fit(X_train, y_train)
+        model2.train(X_train, y_train)
 
         models = {"OLS": model1, "Ridge": model2}
 

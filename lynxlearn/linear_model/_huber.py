@@ -3,6 +3,7 @@ Huber Regression - Robust regression with Huber loss.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -24,8 +25,9 @@ class HuberRegressor(BaseRegressor):
         Maximum number of iterations.
     tol : float, default=1e-5
         Convergence tolerance.
-    fit_intercept : bool, default=True
-        Whether to fit the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -37,13 +39,25 @@ class HuberRegressor(BaseRegressor):
         Actual iterations.
     """
 
-    def __init__(self, epsilon=1.35, alpha=0.0, max_iter=100, tol=1e-5, fit_intercept=True):
+    def __init__(
+        self,
+        epsilon=1.35,
+        alpha=0.0,
+        max_iter=100,
+        tol=1e-5,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.epsilon = epsilon
         self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.n_iter_ = 0
 
     def _huber_loss_gradient(self, residuals):

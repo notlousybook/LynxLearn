@@ -64,7 +64,7 @@ print("2. Linear Regression (OLS - Normal Equation)")
 print("=" * 60)
 
 lr = LinearRegression()
-lr.fit(X_train, y_train)
+lr.train(X_train, y_train)
 y_pred_lr = lr.predict(X_test)
 
 print(f"   Weights: {lr.weights}")
@@ -83,7 +83,7 @@ print("3. Gradient Descent Regressor")
 print("=" * 60)
 
 gd = GradientDescentRegressor(learning_rate=0.01, n_iterations=1000, tolerance=1e-6)
-gd.fit(X_train, y_train)
+gd.train(X_train, y_train)
 y_pred_gd = gd.predict(X_test)
 
 print(f"   Weights: {gd.weights}")
@@ -103,7 +103,7 @@ print("4. Ridge Regression (L2 Regularization)")
 print("=" * 60)
 
 ridge = Ridge(alpha=1.0)
-ridge.fit(X_train, y_train)
+ridge.train(X_train, y_train)
 y_pred_ridge = ridge.predict(X_test)
 
 print(f"   Weights: {ridge.weights}")
@@ -122,7 +122,7 @@ print("5. Lasso Regression (L1 Regularization)")
 print("=" * 60)
 
 lasso = Lasso(alpha=0.1)
-lasso.fit(X_train, y_train)
+lasso.train(X_train, y_train)
 y_pred_lasso = lasso.predict(X_test)
 
 print(f"   Weights: {lasso.weights}")
@@ -142,7 +142,7 @@ print("6. ElasticNet Regression (L1 + L2 Regularization)")
 print("=" * 60)
 
 elastic = ElasticNet(alpha=0.1, l1_ratio=0.5)
-elastic.fit(X_train, y_train)
+elastic.train(X_train, y_train)
 y_pred_elastic = elastic.predict(X_test)
 
 print(f"   Weights: {elastic.weights}")

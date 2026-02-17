@@ -3,6 +3,7 @@ Multi-task ElasticNet and Lasso regression.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -23,8 +24,9 @@ class MultiTaskElasticNet(BaseRegressor):
         Maximum iterations.
     tol : float, default=1e-4
         Convergence tolerance.
-    fit_intercept : bool, default=True
-        Whether to fit intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -36,13 +38,25 @@ class MultiTaskElasticNet(BaseRegressor):
         Number of iterations run.
     """
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=1000, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self,
+        alpha=1.0,
+        l1_ratio=0.5,
+        max_iter=1000,
+        tol=1e-4,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.n_iter_ = 0
 
     def _soft_threshold(self, x, gamma):
@@ -105,12 +119,18 @@ class MultiTaskElasticNet(BaseRegressor):
 
             for j in range(n_features):
                 # Compute residual without feature j
-                residual = y_centered - X_centered @ self.weights + \
-                          X_centered[:, j:j+1] * self.weights[j:j+1, :]
+                residual = (
+                    y_centered
+                    - X_centered @ self.weights
+                    + X_centered[:, j : j + 1] * self.weights[j : j + 1, :]
+                )
 
                 # Compute update
-                rho_j = XTy[j, :] - np.sum(XTX[j, :][:, np.newaxis] * self.weights, axis=0) + \
-                        XTX[j, j] * self.weights[j, :]
+                rho_j = (
+                    XTy[j, :]
+                    - np.sum(XTX[j, :][:, np.newaxis] * self.weights, axis=0)
+                    + XTX[j, j] * self.weights[j, :]
+                )
 
                 # Soft threshold for L1
                 norm_rho_j = np.linalg.norm(rho_j)
@@ -175,8 +195,9 @@ class MultiTaskLasso(BaseRegressor):
         Maximum iterations.
     tol : float, default=1e-4
         Convergence tolerance.
-    fit_intercept : bool, default=True
-        Whether to fit intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -188,12 +209,23 @@ class MultiTaskLasso(BaseRegressor):
         Number of iterations run.
     """
 
-    def __init__(self, alpha=1.0, max_iter=1000, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self,
+        alpha=1.0,
+        max_iter=1000,
+        tol=1e-4,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.alpha = alpha
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.n_iter_ = 0
 
     def _soft_threshold(self, x, gamma):
@@ -253,12 +285,18 @@ class MultiTaskLasso(BaseRegressor):
 
             for j in range(n_features):
                 # Compute residual without feature j
-                residual = y_centered - X_centered @ self.weights + \
-                          X_centered[:, j:j+1] * self.weights[j:j+1, :]
+                residual = (
+                    y_centered
+                    - X_centered @ self.weights
+                    + X_centered[:, j : j + 1] * self.weights[j : j + 1, :]
+                )
 
                 # Compute update
-                rho_j = XTy[j, :] - np.sum(XTX[j, :][:, np.newaxis] * self.weights, axis=0) + \
-                        XTX[j, j] * self.weights[j, :]
+                rho_j = (
+                    XTy[j, :]
+                    - np.sum(XTX[j, :][:, np.newaxis] * self.weights, axis=0)
+                    + XTX[j, j] * self.weights[j, :]
+                )
 
                 # Soft threshold for L1 (group lasso style)
                 norm_rho_j = np.linalg.norm(rho_j)

@@ -3,6 +3,7 @@ ElasticNet Regression (L1 + L2 Regularization).
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -25,8 +26,9 @@ class ElasticNet(BaseRegressor):
         Maximum number of iterations.
     tol : float, default=1e-4
         Convergence tolerance.
-    fit_intercept : bool, default=True
-        Whether to calculate the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -38,13 +40,25 @@ class ElasticNet(BaseRegressor):
         Actual iterations performed.
     """
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, max_iter=1000, tol=1e-4, fit_intercept=True):
+    def __init__(
+        self,
+        alpha=1.0,
+        l1_ratio=0.5,
+        max_iter=1000,
+        tol=1e-4,
+        learn_bias=True,
+        fit_intercept=None,
+    ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.n_iter_ = 0
 
     def _soft_threshold(self, x, gamma):
@@ -92,7 +106,7 @@ class ElasticNet(BaseRegressor):
         self.bias = 0.0 if self.fit_intercept else 0.0
 
         # Precompute X.T @ X diagonal
-        XTX_diag = np.sum(X_centered ** 2, axis=0)
+        XTX_diag = np.sum(X_centered**2, axis=0)
 
         # Coordinate descent
         alpha_l1 = self.alpha * self.l1_ratio * n_samples
@@ -103,7 +117,11 @@ class ElasticNet(BaseRegressor):
 
             for j in range(n_features):
                 # Compute partial residual
-                residual = y_centered - X_centered @ self.weights + self.weights[j] * X_centered[:, j]
+                residual = (
+                    y_centered
+                    - X_centered @ self.weights
+                    + self.weights[j] * X_centered[:, j]
+                )
 
                 # Update with both L1 and L2 regularization
                 rho = np.dot(X_centered[:, j], residual)

@@ -3,6 +3,7 @@ Automatic Relevance Determination (ARD) Regression.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -30,8 +31,9 @@ class ARDRegression(BaseRegressor):
         Rate parameter for Gamma prior on lambda.
     compute_score : bool, default=False
         Whether to compute the log marginal likelihood.
-    fit_intercept : bool, default=True
-        Whether to fit the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias/intercept term.
+        (Also accepts `fit_intercept` for backward compatibility)
 
     Attributes
     ----------
@@ -58,9 +60,13 @@ class ARDRegression(BaseRegressor):
         lambda_1=1e-6,
         lambda_2=1e-6,
         compute_score=False,
-        fit_intercept=True,
+        learn_bias=True,
+        fit_intercept=None,
     ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.n_iter = n_iter
         self.tol = tol
         self.alpha_1 = alpha_1
@@ -68,7 +74,8 @@ class ARDRegression(BaseRegressor):
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
         self.compute_score = compute_score
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
 
         # Runtime attributes
         self.alpha_ = None
@@ -133,19 +140,19 @@ class ARDRegression(BaseRegressor):
             # Update alpha (precision of weights) - ARD specific
             # Each weight gets its own precision
             gamma = 1 - alpha * np.diag(sigma)
-            alpha = (gamma + 2 * self.alpha_1) / (
-                self.weights ** 2 + 2 * self.alpha_2
-            )
+            alpha = (gamma + 2 * self.alpha_1) / (self.weights**2 + 2 * self.alpha_2)
 
             # Update lambda (precision of noise)
             lambda_prec = (n_samples - np.sum(gamma) + 2 * self.lambda_1) / (
-                np.sum((y_centered - X_centered @ self.weights) ** 2) +
-                2 * self.lambda_2
+                np.sum((y_centered - X_centered @ self.weights) ** 2)
+                + 2 * self.lambda_2
             )
 
             # Compute log marginal likelihood if requested
             if self.compute_score:
-                score = self._log_marginal_likelihood(X_centered, y_centered, alpha, lambda_prec, sigma)
+                score = self._log_marginal_likelihood(
+                    X_centered, y_centered, alpha, lambda_prec, sigma
+                )
                 self.scores_.append(score)
 
             # Check convergence
@@ -175,7 +182,7 @@ class ARDRegression(BaseRegressor):
         # Compute the log marginal likelihood
         # This is a simplified version
         residuals = y - X @ self.weights
-        rss = np.sum(residuals ** 2)
+        rss = np.sum(residuals**2)
 
         # Log likelihood
         log_likelihood = (
@@ -186,8 +193,9 @@ class ARDRegression(BaseRegressor):
 
         # Log prior
         log_prior = (
-            np.sum(np.log(alpha) - alpha * self.weights ** 2)
-            + np.log(lambda_prec) - lambda_prec * rss / n_samples
+            np.sum(np.log(alpha) - alpha * self.weights**2)
+            + np.log(lambda_prec)
+            - lambda_prec * rss / n_samples
         )
 
         return log_likelihood + log_prior

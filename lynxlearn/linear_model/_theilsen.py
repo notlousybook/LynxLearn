@@ -3,6 +3,7 @@ Theil-Sen Regressor - Median-based robust regression.
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 from ._ols import LinearRegression
 
@@ -23,8 +24,9 @@ class TheilSenRegressor(BaseRegressor):
         Maximum number of iterations for intercept calculation.
     tol : float, default=1e-3
         Tolerance for convergence.
-    fit_intercept : bool, default=True
-        Whether to fit the intercept.
+    learn_bias : bool, default=True
+        Whether to learn the bias term.
+        (Also accepts `fit_intercept` for backward compatibility)
     random_state : int, default=None
         Random seed for reproducibility.
     n_jobs : int, default=1
@@ -45,15 +47,20 @@ class TheilSenRegressor(BaseRegressor):
         n_subsamples=None,
         max_iter=300,
         tol=1e-3,
-        fit_intercept=True,
+        learn_bias=True,
+        fit_intercept=None,
         random_state=None,
         n_jobs=1,
     ):
         super().__init__()
+        # Backward compatibility: fit_intercept overrides learn_bias if provided
+        if fit_intercept is not None:
+            learn_bias = fit_intercept
         self.n_subsamples = n_subsamples
         self.max_iter = max_iter
         self.tol = tol
-        self.fit_intercept = fit_intercept
+        self.learn_bias = learn_bias
+        self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.random_state = random_state
         self.n_jobs = n_jobs
         self.n_iter_ = 0
@@ -123,8 +130,9 @@ class TheilSenRegressor(BaseRegressor):
                     continue
 
                 # Compute slope
-                slope = (y_centered[idx1] - y_centered[idx2]) / \
-                        (X_centered[idx1, j] - X_centered[idx2, j])
+                slope = (y_centered[idx1] - y_centered[idx2]) / (
+                    X_centered[idx1, j] - X_centered[idx2, j]
+                )
                 slopes.append(slope)
 
             # Use median as the slope

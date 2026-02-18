@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lynxlearn"
-version = "0.2.0"
+version = "0.3.0"
 description = "A simple, educational machine learning library built from scratch using NumPy"
 readme = "README.md"
 license = {text = "MIT"}
@@ -17,6 +17,8 @@ maintainers = [
 keywords = [
     "machine-learning",
     "linear-regression",
+    "neural-network",
+    "deep-learning",
     "educational",
     "numpy",
     "ml",
@@ -61,6 +63,10 @@ dev = [
 all = [
     "matplotlib>=3.5.0",
     "scipy>=1.7.0",
+    "ml-dtypes>=0.2.0",
+]
+bf16 = [
+    "ml-dtypes>=0.2.0",
 ]
 
 [project.urls]
@@ -71,7 +77,18 @@ Issues = "https://github.com/notlousybook/LynxLearn/issues"
 YouTube = "https://youtube.com/channel/UCBNE8MNvq1XppUmpAs20m4w"
 
 [tool.setuptools]
-packages = ["lynxlearn", "lynxlearn.linear_model", "lynxlearn.model_selection", "lynxlearn.metrics", "lynxlearn.visualizations"]
+packages = [
+    "lynxlearn",
+    "lynxlearn.linear_model",
+    "lynxlearn.model_selection",
+    "lynxlearn.metrics",
+    "lynxlearn.visualizations",
+    "lynxlearn.neural_network",
+    "lynxlearn.neural_network.layers",
+    "lynxlearn.neural_network.optimizers",
+    "lynxlearn.neural_network.losses",
+    "lynxlearn.neural_network.initializers",
+]
 
 [tool.setuptools.package-data]
 lynxlearn = ["py.typed"]

@@ -28,20 +28,37 @@ Quick Start - Linear Regression
 Quick Start - Neural Networks
 -----------------------------
 >>> from lynxlearn.neural_network import Sequential, Dense
->>> from lynxlearn.neural_network.optimizers import SGD
->>> from lynxlearn.neural_network.losses import MeanSquaredError
 >>>
+>>> # Create a simple model
 >>> model = Sequential([
 ...     Dense(64, activation='relu', input_shape=(10,)),
+...     Dense(32, activation='relu'),
 ...     Dense(1)
 ... ])
 >>> model.compile(optimizer='sgd', loss='mse')
 >>> history = model.train(X_train, y_train, epochs=100)
->>> predictions = model.predict(X_test)
+
+Custom Precision
+----------------
+>>> from lynxlearn.neural_network import DenseBF16, DenseFloat16
+>>>
+>>> # BF16 precision (requires ml_dtypes)
+>>> model = Sequential([
+...     DenseBF16(128, activation='relu'),
+...     DenseBF16(1)
+... ])
+
+With Regularization
+-------------------
+>>> from lynxlearn.neural_network import Dense, L2Regularizer, MaxNorm
+>>>
+>>> layer = Dense(128, activation='relu',
+...               kernel_regularizer=L2Regularizer(l2=0.01),
+...               kernel_constraint=MaxNorm(3.0))
 
 Examples
 --------
-See the `examples/demo.py` script for comprehensive usage examples.
+See the `examples/` directory for comprehensive usage examples.
 
 For more information, visit: https://github.com/notlousybook/LynxLearn
 """
@@ -49,8 +66,10 @@ For more information, visit: https://github.com/notlousybook/LynxLearn
 __version__ = "0.3.0"
 __author__ = "lousybook01"
 
-# Import all regression models for easy access
+# Import submodules
 from . import metrics, neural_network, visualizations
+
+# Import linear models
 from .linear_model import (
     BayesianRidge,
     ElasticNet,
@@ -63,22 +82,77 @@ from .linear_model import (
     QuantileRegressor,
     Ridge,
 )
+
+# Import model selection
 from .model_selection import train_test_split
 
-# Import commonly used neural network components for convenience
+# Import neural network components - Models
+# Import neural network components - Layers
+# Import neural network components - Regularizers
+# Import neural network components - Constraints
+# Import neural network components - Optimizers
+# Import neural network components - Losses
+# Import neural network components - Initializers
+# Import neural network components - Other
 from .neural_network import (
+    LBFGS,
+    MAE,
+    MSE,
     SGD,
+    ActivationRegistry,
+    BaseLayer,
+    BaseLoss,
+    BaseNeuralNetwork,
+    BaseOptimizer,
+    Constant,
+    Constraint,
     Dense,
+    DenseBF16,
+    DenseFloat16,
+    DenseFloat32,
+    DenseFloat64,
+    DenseMixedPrecision,
+    GlorotNormal,
+    GlorotUniform,
+    HeNormal,
+    HeUniform,
+    HuberLoss,
+    KaimingNormal,
+    KaimingUniform,
+    L1L2Regularizer,
+    L1Regularizer,
+    L2Regularizer,
+    LBFGSLinearRegression,
+    LeCunNormal,
+    LeCunUniform,
+    MaxNorm,
     MeanAbsoluteError,
     MeanSquaredError,
+    MinMaxNorm,
+    NonNeg,
+    Ones,
+    Orthogonal,
+    RandomNormal,
+    RandomUniform,
+    Regularizer,
     Sequential,
+    TruncatedNormal,
+    UnitNorm,
+    XavierNormal,
+    XavierUniform,
+    Zeros,
+    get_initializer,
 )
 
 __all__ = [
     # Version info
     "__version__",
     "__author__",
-    # Regression Models
+    # Submodules
+    "metrics",
+    "visualizations",
+    "neural_network",
+    # Linear Models
     "LinearRegression",
     "GradientDescentRegressor",
     "Ridge",
@@ -89,15 +163,61 @@ __all__ = [
     "HuberRegressor",
     "QuantileRegressor",
     "BayesianRidge",
-    # Neural Networks
-    "Sequential",
-    "Dense",
-    "SGD",
-    "MeanSquaredError",
-    "MeanAbsoluteError",
-    "neural_network",
     # Utilities
     "train_test_split",
-    "metrics",
-    "visualizations",
+    # Neural Networks - Models
+    "Sequential",
+    "BaseNeuralNetwork",
+    # Neural Networks - Layers
+    "Dense",
+    "DenseFloat16",
+    "DenseFloat32",
+    "DenseFloat64",
+    "DenseBF16",
+    "DenseMixedPrecision",
+    "BaseLayer",
+    # Neural Networks - Regularizers
+    "Regularizer",
+    "L1Regularizer",
+    "L2Regularizer",
+    "L1L2Regularizer",
+    # Neural Networks - Constraints
+    "Constraint",
+    "MaxNorm",
+    "NonNeg",
+    "UnitNorm",
+    "MinMaxNorm",
+    # Neural Networks - Optimizers
+    "SGD",
+    "LBFGS",
+    "LBFGSLinearRegression",
+    "BaseOptimizer",
+    # Neural Networks - Losses
+    "MeanSquaredError",
+    "MeanAbsoluteError",
+    "HuberLoss",
+    "MSE",
+    "MAE",
+    "BaseLoss",
+    # Neural Networks - Initializers
+    "HeNormal",
+    "HeUniform",
+    "XavierNormal",
+    "XavierUniform",
+    "GlorotNormal",
+    "GlorotUniform",
+    "LeCunNormal",
+    "LeCunUniform",
+    "KaimingNormal",
+    "KaimingUniform",
+    "RandomNormal",
+    "RandomUniform",
+    "TruncatedNormal",
+    "Zeros",
+    "Ones",
+    "Constant",
+    "Orthogonal",
+    "get_initializer",
+    # Neural Networks - Other
+    "ActivationRegistry",
 ]

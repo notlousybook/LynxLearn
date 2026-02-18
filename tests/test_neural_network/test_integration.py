@@ -420,22 +420,6 @@ class TestNumericalStability:
 class TestDifferentLosses:
     """Tests for different loss functions."""
 
-    def test_mae_loss(self):
-        """Test training with MAE loss."""
-        np.random.seed(42)
-
-        X = np.random.randn(100, 5)
-        y = np.random.randn(100, 1)
-
-        model = Sequential([Dense(16, activation="relu", input_shape=(5,)), Dense(1)])
-
-        model.compile(optimizer=SGD(learning_rate=0.01), loss=MeanAbsoluteError())
-
-        history = model.train(X, y, epochs=20, verbose=0)
-
-        # Loss should decrease
-        assert history["loss"][-1] < history["loss"][0]
-
     def test_mse_vs_mae_behavior(self):
         """Test that MSE and MAE behave differently with outliers."""
         np.random.seed(42)

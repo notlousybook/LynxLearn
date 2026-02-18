@@ -1,0 +1,95 @@
+# LynxLearn - Full Requirements
+# ==============================
+# All dependencies for maximum performance and features
+# EXCLUDES: torch, tensorflow (too big, install separately if needed)
+
+# ============================================
+# CORE (Required)
+# ============================================
+numpy>=1.20.0
+
+# ============================================
+# PERFORMANCE OPTIMIZATION
+# ============================================
+# Intel MKL - Faster BLAS on Intel CPUs (~20-30% speedup)
+# Install via conda: conda install mkl
+# Or use Intel's optimized numpy:
+# intel-numpy>=1.24.0
+
+# OpenMP threading for parallel operations
+# (usually comes with numpy/BLAS, but explicit here)
+threadpoolctl>=3.0.0
+
+# ============================================
+# PRECISION SUPPORT
+# ============================================
+# BF16 (Brain Float 16) support
+ml-dtypes>=0.2.0
+
+# ============================================
+# VISUALIZATION
+# ============================================
+matplotlib>=3.5.0
+seaborn>=0.12.0
+scipy>=1.7.0
+
+# ============================================
+# BENCHMARKING & COMPARISON
+# ============================================
+scikit-learn>=1.0.0
+
+# ============================================
+# DEVELOPMENT TOOLS
+# ============================================
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-xdist>=3.0.0
+pytest-timeout>=2.0.0
+
+# Linting & Formatting
+flake8>=5.0.0
+black>=22.0.0
+isort>=5.10.0
+ruff>=0.0.260
+
+# Type Checking
+mypy>=1.0.0
+types-setuptools>=65.0.0
+
+# Documentation
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0
+
+# ============================================
+# JUPYTER SUPPORT
+# ============================================
+jupyter>=1.0.0
+ipython>=8.0.0
+ipykernel>=6.0.0
+
+# ============================================
+# UTILITIES
+# ============================================
+tqdm>=4.64.0
+joblib>=1.2.0
+
+# ============================================
+# INSTALLATION OPTIONS
+# ============================================
+# Minimal (core only):
+#   pip install numpy
+#
+# Standard (with viz):
+#   pip install numpy matplotlib scipy
+#
+# Full (this file):
+#   pip install -r requirements-full.txt
+#
+# With Intel MKL (recommended for speed):
+#   conda install numpy mkl scipy matplotlib
+#   pip install -r requirements-full.txt --no-deps
+#
+# With PyTorch/TensorFlow for benchmarks:
+#   pip install torch tensorflow
+#   (these are LARGE, install separately if needed)

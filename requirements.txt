@@ -1,0 +1,34 @@
+# LynxLearn - Requirements
+# ========================
+
+# Core Dependencies (required)
+numpy>=1.20.0
+
+# Optional Dependencies
+# ---------------------
+
+# For visualizations (plotting, comprehensive reports)
+# pip install lynxlearn[viz]
+matplotlib>=3.5.0
+scipy>=1.7.0
+
+# For BF16 (Brain Float 16) precision support
+# pip install lynxlearn[bf16]
+ml-dtypes>=0.2.0
+
+# For benchmarking against other frameworks
+# pip install lynxlearn[benchmark]
+scikit-learn>=1.0.0
+torch>=1.9.0
+tensorflow>=2.8.0
+
+# For Intel MKL optimization (faster on Intel CPUs)
+# Install via conda: conda install numpy mkl
+# Or: pip install intel-numpy
+
+# Installation Options
+# --------------------
+# pip install -r requirements.txt                    # Install everything
+# pip install numpy                                   # Minimal install
+# pip install numpy matplotlib scipy                 # With visualizations
+# pip install numpy ml-dtypes                         # With BF16 support

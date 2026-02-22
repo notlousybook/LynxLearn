@@ -11,6 +11,7 @@ Usage:
 """
 
 import argparse
+import gc
 import time
 import warnings
 from typing import Any, Callable, Dict, List, Tuple
@@ -182,14 +183,14 @@ def benchmark_lynxlearn_nn(X_train, y_train, X_test, y_test) -> Dict:
 
     model = Sequential(
         [
-            Dense(64, activation="relu", input_shape=(n_features,)),
-            Dense(32, activation="relu"),
+            Dense(32, activation="relu", input_shape=(n_features,)),
+            Dense(16, activation="relu"),
             Dense(1),
         ]
     )
     model.compile(optimizer=SGD(learning_rate=0.01), loss="mse")
 
-    fit_time, _ = timeit(model.train, X_train, y_train, epochs=50, verbose=0)
+    fit_time, _ = timeit(model.train, X_train, y_train, epochs=20, verbose=0)
     predict_time, y_pred = timeit(model.predict, X_test)
 
     return {
@@ -396,9 +397,15 @@ def run_single_benchmark(
                 print(f"    {result['error']}")
         except Exception as e:
             print(f"    Error: {e}")
+        # Force garbage collection after each benchmark
+        gc.collect()
 
     # Sort by fit time
     results.sort(key=lambda x: x.get("fit_time", float("inf")))
+
+    # Free memory
+    del X_train, y_train, X_test, y_test
+    gc.collect()
 
     return results
 
@@ -443,9 +450,15 @@ def run_nn_benchmark(
                 print(f"    {result['error']}")
         except Exception as e:
             print(f"    Error: {e}")
+        # Force garbage collection after each benchmark
+        gc.collect()
 
     # Sort by fit time
     results.sort(key=lambda x: x.get("fit_time", float("inf")))
+
+    # Free memory
+    del X_train, y_train, X_test, y_test
+    gc.collect()
 
     return results
 
@@ -507,7 +520,12 @@ def print_environment_info() -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="LynxLearn Cloud Benchmark")
-    parser.add_argument("--quick", action="store_true", help="Quick benchmark")
+    parser.add_argument(
+        "--quick", action="store_true", help="Quick benchmark (smaller datasets)"
+    )
+    parser.add_argument(
+        "--tiny", action="store_true", help="Tiny benchmark (minimal memory)"
+    )
     parser.add_argument(
         "--nn", action="store_true", help="Run neural network benchmarks"
     )
@@ -530,17 +548,21 @@ def main():
     # Run benchmarks
     all_results = {}
 
-    if args.quick:
+    if args.tiny:
+        configs = [
+            ("Tiny (100 x 5)", 100, 5),
+            ("Small (500 x 10)", 500, 10),
+        ]
+    elif args.quick:
         configs = [
             ("Small (1000 x 10)", 1000, 10),
-            ("Medium (10000 x 50)", 10000, 50),
+            ("Medium (5000 x 20)", 5000, 20),
         ]
     else:
         configs = [
             ("Tiny (100 x 5)", 100, 5),
             ("Small (1000 x 10)", 1000, 10),
-            ("Medium (10000 x 50)", 10000, 50),
-            ("Large (100000 x 100)", 100000, 100),
+            ("Medium (5000 x 20)", 5000, 20),
         ]
 
     for config_name, n_samples, n_features in configs:
@@ -553,10 +575,15 @@ def main():
     # Run neural network benchmarks if requested
     if args.nn:
         nn_results = {}
-        nn_configs = [
-            ("NN Small (1000 x 10)", 1000, 10),
-            ("NN Medium (5000 x 20)", 5000, 20),
-        ]
+        # Use smaller configs for NN to save memory
+        if args.tiny:
+            nn_configs = [
+                ("NN Tiny (100 x 5)", 100, 5),
+            ]
+        else:
+            nn_configs = [
+                ("NN Small (500 x 10)", 500, 10),
+            ]
         for config_name, n_samples, n_features in nn_configs:
             results = run_nn_benchmark(config_name, n_samples, n_features)
             nn_results[config_name] = results

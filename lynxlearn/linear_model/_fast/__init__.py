@@ -70,6 +70,7 @@ from ._linear_fast import (
     FastSGDRegressor,
 )
 from ._solvers import (
+    NUMBA_AVAILABLE,
     solve_cg,
     solve_cholesky,
     solve_lbfgs,
@@ -89,6 +90,8 @@ __all__ = [
     "solve_cg",
     "solve_sgd",
     "solve_lbfgs",
+    # Numba availability flag
+    "NUMBA_AVAILABLE",
 ]
 
 # Version info

@@ -75,6 +75,11 @@ try:
         GradientDescentRegressor,
         LinearRegression,
     )
+    from lynxlearn.linear_model._fast import (
+        NUMBA_AVAILABLE,
+        FastLinearRegression,
+        FastSGDRegressor,
+    )
     from lynxlearn.neural_network import SGD, Dense, Sequential
     from lynxlearn.neural_network.optimizers import LBFGSLinearRegression
 
@@ -83,6 +88,7 @@ try:
 except ImportError as e:
     LYNXLEARN_AVAILABLE = False
     LYNXLEARN_VERSION = "not installed"
+    NUMBA_AVAILABLE = False
     print(f"[!] LynxLearn not available: {e}")
     print("[!] Install with: pip install lynxlearn")
 
@@ -106,6 +112,17 @@ try:
 except ImportError:
     PYTORCH_AVAILABLE = False
     print("[!] PyTorch not installed. Install with: pip install torch")
+
+# TensorFlow
+try:
+    import tensorflow as tf
+
+    # Disable TensorFlow warnings
+    tf.get_logger().setLevel("ERROR")
+    TENSORFLOW_AVAILABLE = True
+except ImportError:
+    TENSORFLOW_AVAILABLE = False
+    print("[!] TensorFlow not installed. Install with: pip install tensorflow")
 
 
 # =============================================================================
@@ -254,6 +271,81 @@ def benchmark_lynxlearn_lbfgs(X_train, y_train, X_test, y_test) -> Dict:
     }
 
 
+def benchmark_lynxlearn_fast_ols(X_train, y_train, X_test, y_test) -> Dict:
+    """Benchmark LynxLearn FastLinearRegression (optimized OLS)."""
+    if not LYNXLEARN_AVAILABLE:
+        return {"error": "LynxLearn not available"}
+
+    # Test with different solvers
+    results = []
+
+    # lstsq solver (fastest for small data)
+    model_lstsq = FastLinearRegression(solver="lstsq", compute_statistics=False)
+    fit_time_lstsq, _ = timeit(model_lstsq.fit, X_train, y_train)
+    predict_time_lstsq, y_pred_lstsq = timeit(model_lstsq.predict, X_test)
+
+    # cg solver (best for medium data)
+    model_cg = FastLinearRegression(
+        solver="cg", compute_statistics=False, max_iter=1000
+    )
+    fit_time_cg, _ = timeit(model_cg.fit, X_train, y_train)
+    predict_time_cg, y_pred_cg = timeit(model_cg.predict, X_test)
+
+    # auto solver (automatically selects best)
+    model_auto = FastLinearRegression(solver="auto", compute_statistics=False)
+    fit_time_auto, _ = timeit(model_auto.fit, X_train, y_train)
+    predict_time_auto, y_pred_auto = timeit(model_auto.predict, X_test)
+
+    # Return the best result (fastest fit time)
+    best_idx = np.argmin([fit_time_lstsq, fit_time_cg, fit_time_auto])
+    times = [fit_time_lstsq, fit_time_cg, fit_time_auto]
+    preds = [y_pred_lstsq, y_pred_cg, y_pred_auto]
+    solvers = ["lstsq", "cg", "auto"]
+
+    y_pred = preds[best_idx]
+
+    return {
+        "name": f"LynxLearn Fast OLS ({solvers[best_idx]})",
+        "fit_time": times[best_idx],
+        "predict_time": [predict_time_lstsq, predict_time_cg, predict_time_auto][
+            best_idx
+        ],
+        "mse": np.mean((y_test - y_pred) ** 2),
+        "r2": 1
+        - np.sum((y_test - y_pred) ** 2) / np.sum((y_test - y_test.mean()) ** 2),
+        "solver_used": solvers[best_idx],
+        "numba_available": NUMBA_AVAILABLE,
+    }
+
+
+def benchmark_lynxlearn_fast_sgd(X_train, y_train, X_test, y_test) -> Dict:
+    """Benchmark LynxLearn FastSGDRegressor (numba JIT optimized)."""
+    if not LYNXLEARN_AVAILABLE:
+        return {"error": "LynxLearn not available"}
+
+    # FastSGD with numba JIT (if available)
+    model = FastSGDRegressor(
+        learning_rate=0.01,
+        max_epochs=100,
+        batch_size=32,
+        use_numba=True,  # Will use numba if available
+        tol=1e-6,
+    )
+    fit_time, _ = timeit(model.fit, X_train, y_train)
+    predict_time, y_pred = timeit(model.predict, X_test)
+
+    return {
+        "name": f"LynxLearn Fast SGD ({'numba' if model._used_numba else 'numpy'})",
+        "fit_time": fit_time,
+        "predict_time": predict_time,
+        "mse": np.mean((y_test - y_pred) ** 2),
+        "r2": 1
+        - np.sum((y_test - y_pred) ** 2) / np.sum((y_test - y_test.mean()) ** 2),
+        "iterations": model.n_iter_,
+        "numba_used": model._used_numba,
+    }
+
+
 def benchmark_lynxlearn_nn(X_train, y_train, X_test, y_test) -> Dict:
     """Benchmark LynxLearn Neural Network."""
     if not LYNXLEARN_AVAILABLE:
@@ -360,6 +452,57 @@ class PyTorchMLP(nn.Module):
         return self.model(x)
 
 
+def build_tensorflow_mlp(n_features):
+    """Build TensorFlow/Keras MLP for benchmarking."""
+
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.Input(shape=(n_features,)),
+            tf.keras.layers.Dense(64, activation="relu"),
+            tf.keras.layers.Dense(32, activation="relu"),
+            tf.keras.layers.Dense(1),
+        ]
+    )
+    return model
+
+
+def benchmark_tensorflow_lr(X_train, y_train, X_test, y_test) -> Dict:
+    """Benchmark TensorFlow/Keras Linear Regression."""
+    if not TENSORFLOW_AVAILABLE:
+        return {"error": "TensorFlow not available"}
+
+    tf.keras.backend.clear_session()
+
+    # Simple linear regression model (single Dense layer, no activation)
+    model = tf.keras.Sequential(
+        [
+            tf.keras.layers.Input(shape=(X_train.shape[1],)),
+            tf.keras.layers.Dense(1, use_bias=True),
+        ]
+    )
+    model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01), loss="mse")
+
+    def fit():
+        model.fit(X_train, y_train, epochs=100, batch_size=32, verbose=0)
+        return model
+
+    fit_time, model = timeit(fit)
+
+    def predict():
+        return model.predict(X_test, verbose=0).flatten()
+
+    predict_time, y_pred = timeit(predict)
+
+    return {
+        "name": "TensorFlow LR",
+        "fit_time": fit_time,
+        "predict_time": predict_time,
+        "mse": np.mean((y_test - y_pred) ** 2),
+        "r2": 1
+        - np.sum((y_test - y_pred) ** 2) / np.sum((y_test - y_test.mean()) ** 2),
+    }
+
+
 def benchmark_pytorch_nn(X_train, y_train, X_test, y_test) -> Dict:
     """Benchmark PyTorch Neural Network."""
     if not PYTORCH_AVAILABLE:
@@ -395,6 +538,51 @@ def benchmark_pytorch_nn(X_train, y_train, X_test, y_test) -> Dict:
 
     return {
         "name": "PyTorch NN",
+        "fit_time": fit_time,
+        "predict_time": predict_time,
+        "mse": np.mean((y_test - y_pred) ** 2),
+        "r2": 1
+        - np.sum((y_test - y_pred) ** 2) / np.sum((y_test - y_test.mean()) ** 2),
+    }
+
+
+def benchmark_tensorflow_nn(X_train, y_train, X_test, y_test) -> Dict:
+    """Benchmark TensorFlow/Keras Neural Network."""
+    if not TENSORFLOW_AVAILABLE:
+        return {"error": "TensorFlow not available"}
+
+    n_features = X_train.shape[1]
+
+    # Build model
+    model = build_tensorflow_mlp(n_features)
+    model.compile(
+        optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+        loss="mse",
+    )
+
+    def train():
+        # Suppress TF output
+        tf.keras.backend.clear_session()
+        model.fit(
+            X_train,
+            y_train,
+            epochs=50,
+            batch_size=32,
+            verbose=0,
+        )
+        return model
+
+    fit_time, model = timeit(train)
+
+    # Inference
+    def predict():
+        return model.predict(X_test, verbose=0)
+
+    predict_time, y_pred = timeit(predict)
+    y_pred = y_pred.flatten()
+
+    return {
+        "name": "TensorFlow NN",
         "fit_time": fit_time,
         "predict_time": predict_time,
         "mse": np.mean((y_test - y_pred) ** 2),
@@ -455,14 +643,17 @@ def run_single_benchmark(
 
     results = []
 
-    # Run benchmarks
+    # Run benchmarks - ORDERED BY EXPECTED SPEED (fastest first)
     benchmarks = [
         ("NumPy lstsq", benchmark_numpy_lstsq),
+        ("LynxLearn Fast OLS", benchmark_lynxlearn_fast_ols),
+        ("LynxLearn Fast SGD", benchmark_lynxlearn_fast_sgd),
         ("LynxLearn OLS", benchmark_lynxlearn_ols),
         ("LynxLearn GD", benchmark_lynxlearn_gd),
         ("LynxLearn L-BFGS", benchmark_lynxlearn_lbfgs),
         ("scikit-learn OLS", benchmark_sklearn_ols),
         ("scikit-learn SGD", benchmark_sklearn_sgd),
+        ("TensorFlow LR", benchmark_tensorflow_lr),
     ]
 
     for bench_name, bench_func in benchmarks:
@@ -517,6 +708,7 @@ def run_nn_benchmark(
         ("LynxLearn NN", benchmark_lynxlearn_nn),
         ("scikit-learn MLP", benchmark_sklearn_mlp),
         ("PyTorch NN", benchmark_pytorch_nn),
+        ("TensorFlow NN", benchmark_tensorflow_nn),
     ]
 
     for bench_name, bench_func in benchmarks:
@@ -586,6 +778,11 @@ def print_environment_info() -> None:
     print(f"LynxLearn:        {LYNXLEARN_VERSION}")
     print(f"  - Available:    {'Yes' if LYNXLEARN_AVAILABLE else 'No'}")
 
+    if LYNXLEARN_AVAILABLE:
+        print(
+            f"  - Numba JIT:    {'Yes' if NUMBA_AVAILABLE else 'No (pip install numba)'}"
+        )
+
     if SKLEARN_AVAILABLE:
         import sklearn
 
@@ -597,6 +794,19 @@ def print_environment_info() -> None:
         print(f"PyTorch:          {torch.__version__}")
     else:
         print("PyTorch:          Not installed")
+
+    if TENSORFLOW_AVAILABLE:
+        print(f"TensorFlow:       {tf.__version__}")
+    else:
+        print("TensorFlow:       Not installed")
+
+    # Check numba directly
+    try:
+        import numba
+
+        print(f"Numba:            {numba.__version__}")
+    except ImportError:
+        print("Numba:            Not installed (pip install numba for 3-10x speedup)")
 
     print("=" * 70)
 

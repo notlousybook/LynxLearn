@@ -61,6 +61,7 @@ from typing import Optional, Tuple
 import numpy as np
 from scipy import linalg
 from scipy.optimize import minimize
+from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import cg as scipy_cg
 
 # Try importing optional backends
@@ -334,11 +335,18 @@ def solve_cg(
     Xty = X_centered.T @ y_centered
 
     # Solve using Conjugate Gradient
+    # Wrap matvec in LinearOperator for scipy cg
+    A_operator = LinearOperator(
+        shape=(n_features, n_features),
+        matvec=matvec,
+        dtype=np.float64,
+    )
+    # Note: scipy cg uses 'rtol' parameter name (changed from 'tol' in newer versions)
     result, info = scipy_cg(
-        matvec,
+        A_operator,
         Xty,
         maxiter=max_iter,
-        tol=tol,
+        rtol=tol,
     )
 
     coef = result

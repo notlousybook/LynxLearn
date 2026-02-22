@@ -511,7 +511,7 @@ def main():
     parser.add_argument(
         "--nn", action="store_true", help="Run neural network benchmarks"
     )
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     print("=" * 70)
     print("LynxLearn Cloud Benchmark (PIP-INSTALLED PACKAGE)")

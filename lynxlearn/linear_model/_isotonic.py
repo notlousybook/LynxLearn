@@ -144,7 +144,7 @@ class IsotonicRegression(BaseRegressor):
         if X.ndim != 1:
             raise ValueError("IsotonicRegression only supports 1D input X")
 
-        n_samples = len(X)
+        len(X)
 
         # Fit isotonic regression
         self.X_thresholds_, self.y_thresholds_ = self._isotonic_regression(X, y)

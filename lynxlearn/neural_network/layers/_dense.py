@@ -21,13 +21,6 @@ import numpy as np
 
 from ..initializers import (
     BaseInitializer,
-    Constant,
-    HeNormal,
-    HeUniform,
-    LeCunNormal,
-    XavierNormal,
-    XavierUniform,
-    Zeros,
     get_initializer,
 )
 from ._base import BaseLayer

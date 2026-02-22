@@ -5,8 +5,7 @@ Tests for neural network layers.
 import numpy as np
 import pytest
 
-from lynxlearn.neural_network.initializers import HeNormal, XavierNormal, Zeros
-from lynxlearn.neural_network.layers import BaseLayer, Dense
+from lynxlearn.neural_network.layers import Dense
 
 
 class TestDense:
@@ -130,7 +129,7 @@ class TestDense:
         layer.build((8, 16))
 
         X = np.random.randn(8, 16)
-        output = layer.forward(X)
+        layer.forward(X)
 
         grad_output = np.random.randn(8, 32)
         grad_input = layer.backward(grad_output)

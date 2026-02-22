@@ -10,7 +10,6 @@ import pytest
 from lynxlearn.neural_network import (
     SGD,
     Dense,
-    MeanAbsoluteError,
     MeanSquaredError,
     Sequential,
 )
@@ -174,7 +173,7 @@ class TestSequentialModel:
         )
 
         model.compile(optimizer=SGD(learning_rate=0.1), loss="mse")
-        history = model.train(X, y, epochs=20, verbose=0)
+        model.train(X, y, epochs=20, verbose=0)
 
         # Test predictions
         X_test = np.random.randn(5, 10)
@@ -408,7 +407,7 @@ class TestNumericalStability:
         y = np.zeros((50, 5))
         y[np.arange(50), np.random.randint(0, 5, 50)] = 1
 
-        history = model.train(X, y, epochs=10, verbose=0)
+        model.train(X, y, epochs=10, verbose=0)
 
         # Check predictions are valid probabilities
         predictions = model.predict(X)

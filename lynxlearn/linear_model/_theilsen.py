@@ -5,7 +5,6 @@ Theil-Sen Regressor - Median-based robust regression.
 import numpy as np
 
 from ._base import BaseRegressor
-from ._ols import LinearRegression
 
 
 class TheilSenRegressor(BaseRegressor):

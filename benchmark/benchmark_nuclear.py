@@ -23,7 +23,7 @@ import sys
 import time
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -36,11 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Try importing LynxLearn
 try:
     from lynxlearn import metrics
-    from lynxlearn.linear_model import (
-        GradientDescentRegressor,
-        LinearRegression,
-        Ridge,
-    )
+    from lynxlearn.linear_model import LinearRegression
     from lynxlearn.neural_network import SGD, Dense, Sequential
 
     LYNXLEARN_AVAILABLE = True
@@ -51,8 +47,6 @@ except ImportError as e:
 # Try importing scikit-learn
 try:
     from sklearn.linear_model import LinearRegression as SklearnLR
-    from sklearn.linear_model import Ridge as SklearnRidge
-    from sklearn.linear_model import SGDRegressor
 
     SKLEARN_AVAILABLE = True
 except ImportError:
@@ -177,7 +171,7 @@ def get_memory_usage() -> float:
 
         process = psutil.Process(os.getpid())
         return process.memory_info().rss / 1024 / 1024
-    except:
+    except Exception:
         return 0.0
 
 
@@ -260,7 +254,7 @@ def benchmark_lynxlearn_lr(config: BenchmarkConfig) -> BenchmarkResult:
     try:
         mse = metrics.mse(y_test, y_pred)
         r2 = metrics.r2_score(y_test, y_pred)
-    except:
+    except Exception:
         mse = np.mean((y_test - y_pred) ** 2)
         r2 = 1 - np.sum((y_test - y_pred) ** 2) / np.sum(
             (y_test - np.mean(y_test)) ** 2
@@ -446,7 +440,7 @@ def benchmark_lynxlearn_nn(
 
         # Inference
         start = time.perf_counter()
-        y_pred = model.predict(X[:100])
+        model.predict(X[:100])
         inference_time = time.perf_counter() - start
 
         return {
@@ -525,7 +519,7 @@ def benchmark_pytorch_nn(
         model.eval()
         start = time.perf_counter()
         with torch.no_grad():
-            y_pred = model(X_t[:100])
+            model(X_t[:100])
         inference_time = time.perf_counter() - start
 
         # Count parameters
@@ -868,7 +862,7 @@ def run_big_data_benchmark():
     for config in configs:
         print(f"\n{'=' * 80}")
         print(f"Testing: {config.name}")
-        print(f"Expected to handle without crash: ✅")
+        print("Expected to handle without crash: ✅")
         results = run_linear_benchmark(config, competitors=["lynxlearn", "sklearn"])
         all_results.extend(results)
 

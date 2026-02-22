@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from lynxlearn.neural_network.layers import Dense
-from lynxlearn.neural_network.optimizers import SGD, BaseOptimizer
+from lynxlearn.neural_network.optimizers import SGD
 
 
 class TestSGD:
@@ -135,7 +135,7 @@ class TestSGD:
 
         # Get original gradients
         original_grads = layer.get_gradients()
-        original_norm = np.sqrt(
+        np.sqrt(
             sum(np.sum(np.square(g)) for g in original_grads.values())
         )
 

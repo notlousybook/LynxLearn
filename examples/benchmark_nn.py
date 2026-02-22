@@ -15,13 +15,13 @@ import argparse
 import os
 import sys
 import time
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lynxlearn.neural_network import SGD, Dense, MeanSquaredError, Sequential
+from lynxlearn.neural_network import SGD, Dense, Sequential
 
 
 def format_time(seconds: float) -> str:
@@ -266,7 +266,7 @@ def run_benchmark(
     print("=" * 80)
     print("CPU Neural Network Benchmark: LynxLearn vs PyTorch")
     print("=" * 80)
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  - Max params: {format_params(max_params)}")
     print(f"  - Epochs: {epochs}")
     print(f"  - Batch size: {batch_size}")

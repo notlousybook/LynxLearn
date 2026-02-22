@@ -8,7 +8,6 @@ import pytest
 from lynxlearn.neural_network.losses import (
     MAE,
     MSE,
-    BaseLoss,
     HuberLoss,
     MeanAbsoluteError,
     MeanSquaredError,

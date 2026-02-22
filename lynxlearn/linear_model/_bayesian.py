@@ -104,6 +104,8 @@ class BayesianRidge(BaseRegressor):
         # Initialize hyperparameters
         alpha = 1.0  # Precision of weights
         lambda_prec = 1.0  # Precision of noise
+        alpha_old = alpha  # For convergence check
+        lambda_old = lambda_prec  # For convergence check
 
         # Precompute X.T @ X
         XTX = X_centered.T @ X_centered
@@ -135,6 +137,7 @@ class BayesianRidge(BaseRegressor):
                 ):
                     break
 
+            # Store old values for next convergence check
             alpha_old = alpha
             lambda_old = lambda_prec
 

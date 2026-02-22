@@ -9,7 +9,6 @@ Usage:
 import sys
 import os
 import importlib
-import traceback
 import argparse
 
 # Add parent directory to path

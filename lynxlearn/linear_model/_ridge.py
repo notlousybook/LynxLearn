@@ -3,6 +3,7 @@ Ridge Regression (L2 Regularization).
 """
 
 import numpy as np
+
 from ._base import BaseRegressor
 
 
@@ -67,9 +68,9 @@ class Ridge(BaseRegressor):
             y_centered = y - y_mean
 
             # Ridge solution for centered data
-            I = np.eye(n_features)
+            identity_matrix = np.eye(n_features)
             self.weights = (
-                np.linalg.pinv(X_centered.T @ X_centered + self.alpha * I)
+                np.linalg.pinv(X_centered.T @ X_centered + self.alpha * identity_matrix)
                 @ X_centered.T
                 @ y_centered
             )
@@ -77,8 +78,10 @@ class Ridge(BaseRegressor):
         else:
             # No intercept: regularize all parameters
             X_b = X
-            I = np.eye(n_features)
-            theta = np.linalg.pinv(X_b.T @ X_b + self.alpha * I) @ X_b.T @ y
+            identity_matrix = np.eye(n_features)
+            theta = (
+                np.linalg.pinv(X_b.T @ X_b + self.alpha * identity_matrix) @ X_b.T @ y
+            )
             self.weights = theta
             self.bias = 0.0
 

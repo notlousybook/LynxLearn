@@ -56,7 +56,7 @@ solve_sgd:      145 ms  (3.5x faster than CG)
 """
 
 import warnings
-from typing import Callable, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 from scipy import linalg
@@ -65,7 +65,6 @@ from scipy.sparse.linalg import cg as scipy_cg
 
 # Try importing optional backends
 try:
-    import numba
     from numba import jit, prange
 
     NUMBA_AVAILABLE = True

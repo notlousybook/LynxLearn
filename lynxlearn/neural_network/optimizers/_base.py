@@ -3,9 +3,8 @@ Base class for neural network optimizers.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-import numpy as np
 
 
 class BaseOptimizer(ABC):

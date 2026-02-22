@@ -159,7 +159,7 @@ class LinearRegression(BaseRegressor):
             XtX_inv = np.linalg.pinv(X_b.T @ X_b)
             var_theta = residual_var * XtX_inv
             self.std_errors_ = np.sqrt(np.diag(var_theta))[: self.n_features_in_]
-        except:
+        except Exception:
             self.std_errors_ = np.full(self.n_features_in_, np.nan)
 
         # Use np.divide to handle division by zero gracefully
@@ -274,7 +274,7 @@ class LinearRegression(BaseRegressor):
         try:
             XtX_inv = np.linalg.pinv(X_train_b.T @ X_train_b)
             se_pred = np.sqrt(mse * (1 + np.sum((X_b @ XtX_inv) * X_b, axis=1)))
-        except:
+        except Exception:
             se_pred = np.sqrt(mse) * np.ones(X.shape[0])
 
         t_crit = stats.t.ppf(1 - alpha / 2, df) if df > 0 else 1.96
@@ -329,7 +329,7 @@ class LinearRegression(BaseRegressor):
             raise RuntimeError("Model must be trained first!")
 
         print("=" * 60)
-        print(f"Linear Regression Results")
+        print("Linear Regression Results")
         print("=" * 60)
         print(f"Observations: {self.n_samples_}")
         print(f"Features: {self.n_features_in_}")
@@ -340,7 +340,7 @@ class LinearRegression(BaseRegressor):
         print(f"{'Feature':<12} {'Coef':>10} {'Std Err':>10} {'t':>8} {'p-value':>10}")
         print("-" * 60)
 
-        ci = self.confidence_intervals()
+        self.confidence_intervals()
         for i in range(self.n_features_in_):
             p_val = self.p_values_[i]
             sig = (

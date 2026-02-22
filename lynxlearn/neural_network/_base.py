@@ -3,7 +3,7 @@ Base class for neural network models.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 

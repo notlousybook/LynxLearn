@@ -3,7 +3,6 @@ Tests for model_selection module.
 """
 
 import numpy as np
-import pytest
 
 from lynxlearn.model_selection import train_test_split
 
@@ -87,7 +86,7 @@ class TestTrainTestSplit:
 
         # Check that we can reconstruct the original data
         X_reconstructed = np.concatenate([X_train, X_test])
-        y_reconstructed = np.concatenate([y_train, y_test])
+        np.concatenate([y_train, y_test])
 
         # Sort both to compare (since order is shuffled)
         X_sorted_orig = X[np.argsort(X[:, 0])]

@@ -28,7 +28,7 @@ Usage:
 import argparse
 import time
 import warnings
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -48,9 +48,6 @@ try:
         DenseBF16,
         DenseFloat32,
         DenseFloat64,
-        L2Regularizer,
-        MaxNorm,
-        MeanSquaredError,
         Sequential,
     )
 
@@ -82,7 +79,6 @@ except ImportError:
 
 # Try importing scikit-learn
 try:
-    from sklearn.linear_model import LinearRegression as SklearnLinearRegression
     from sklearn.neural_network import MLPRegressor
 
     SKLEARN_AVAILABLE = True
@@ -159,9 +155,11 @@ def benchmark_lynxlearn(
     elif dtype == "bfloat16":
         DenseLayer = DenseBF16
     else:
-        DenseLayer = lambda units, activation, input_shape=None: Dense(
-            units, activation=activation, dtype=dtype, input_shape=input_shape
-        )
+
+        def DenseLayer(units, activation, input_shape=None):
+            return Dense(
+                units, activation=activation, dtype=dtype, input_shape=input_shape
+            )
 
     # Build model
     layers = []
@@ -190,7 +188,7 @@ def benchmark_lynxlearn(
 
     # Inference
     start = time.perf_counter()
-    predictions = model.predict(X)
+    model.predict(X)
     inference_time = time.perf_counter() - start
 
     # Calculate final loss
@@ -293,7 +291,7 @@ def benchmark_pytorch(
     model.eval()
     start = time.perf_counter()
     with torch.no_grad():
-        predictions = model(X_tensor)
+        model(X_tensor)
     inference_time = time.perf_counter() - start
 
     return {
@@ -353,7 +351,7 @@ def benchmark_tensorflow(
 
     # Inference
     start = time.perf_counter()
-    predictions = model.predict(X, verbose=0)
+    model.predict(X, verbose=0)
     inference_time = time.perf_counter() - start
 
     return {

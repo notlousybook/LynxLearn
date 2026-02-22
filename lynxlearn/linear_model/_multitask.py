@@ -119,7 +119,7 @@ class MultiTaskElasticNet(BaseRegressor):
 
             for j in range(n_features):
                 # Compute residual without feature j
-                residual = (
+                (
                     y_centered
                     - X_centered @ self.weights
                     + X_centered[:, j : j + 1] * self.weights[j : j + 1, :]
@@ -285,7 +285,7 @@ class MultiTaskLasso(BaseRegressor):
 
             for j in range(n_features):
                 # Compute residual without feature j
-                residual = (
+                (
                     y_centered
                     - X_centered @ self.weights
                     + X_centered[:, j : j + 1] * self.weights[j : j + 1, :]

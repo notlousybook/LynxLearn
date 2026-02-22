@@ -193,14 +193,12 @@ class GeneralizedLinearModel(BaseRegressor):
 
         # Initialize mu (mean predictions)
         mu = y.copy()
+        mu_old = mu.copy()  # For convergence check
 
         # IRLS algorithm
         for iteration in range(self.max_iter):
             # Compute eta (linear predictor)
             eta = link_func(mu)
-
-            # Compute predictions
-            y_pred = inv_link_func(X @ self.weights + self.bias)
 
             # Compute working response
             # z = eta + (y - mu) * d(eta)/d(mu)
@@ -224,11 +222,15 @@ class GeneralizedLinearModel(BaseRegressor):
                 X_b = X_weighted
 
             # Add regularization
-            I = np.eye(X_b.shape[1])
+            identity_matrix = np.eye(X_b.shape[1])
             if self.fit_intercept:
-                I[0, 0] = 0  # Don't regularize intercept
+                identity_matrix[0, 0] = 0  # Don't regularize intercept
 
-            theta = np.linalg.pinv(X_b.T @ X_b + self.alpha * I) @ X_b.T @ z_weighted
+            theta = (
+                np.linalg.pinv(X_b.T @ X_b + self.alpha * identity_matrix)
+                @ X_b.T
+                @ z_weighted
+            )
 
             if self.fit_intercept:
                 self.bias = theta[0]
@@ -247,6 +249,7 @@ class GeneralizedLinearModel(BaseRegressor):
                     self.n_iter_ = iteration + 1
                     break
 
+            # Store old values for next convergence check
             mu_old = mu.copy()
 
         self.n_iter_ = iteration + 1

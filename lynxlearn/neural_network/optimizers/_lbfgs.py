@@ -18,7 +18,7 @@ References:
 - scikit-learn's implementation in sklearn.utils.optimize
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 

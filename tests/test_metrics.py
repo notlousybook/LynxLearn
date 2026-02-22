@@ -3,7 +3,6 @@ Tests for metrics module.
 """
 
 import numpy as np
-import pytest
 
 from lynxlearn import metrics
 from lynxlearn.metrics import (

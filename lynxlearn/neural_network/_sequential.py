@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ._base import BaseNeuralNetwork
-from .layers import BaseLayer, Dense
+from .layers import BaseLayer
 from .losses import BaseLoss, MeanSquaredError
 from .optimizers import SGD, BaseOptimizer
 
@@ -264,7 +264,6 @@ class Sequential(BaseNeuralNetwork):
 
     def _get_optimizer(self, name: str, **kwargs) -> BaseOptimizer:
         """Get optimizer instance from string name."""
-        from .optimizers import SGD
 
         optimizers = {
             "sgd": SGD,
@@ -284,7 +283,7 @@ class Sequential(BaseNeuralNetwork):
 
     def _get_loss(self, name: str, **kwargs) -> BaseLoss:
         """Get loss instance from string name."""
-        from .losses import MeanAbsoluteError, MeanSquaredError
+        from .losses import MeanAbsoluteError
 
         losses = {
             "mse": MeanSquaredError,
@@ -858,7 +857,7 @@ class Sequential(BaseNeuralNetwork):
         --------
         >>> model = Sequential.load('my_model.npz')
         """
-        data = np.load(filepath, allow_pickle=True)
+        np.load(filepath, allow_pickle=True)
 
         # Reconstruct model
         # This is a simplified version - full implementation would

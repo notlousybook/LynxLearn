@@ -25,8 +25,6 @@ from lynxlearn.linear_model import (
     Ridge,
     Lasso,
     ElasticNet,
-    PolynomialRegression,
-    PolynomialFeatures,
 )
 from lynxlearn.model_selection import train_test_split
 from lynxlearn import metrics
@@ -312,5 +310,5 @@ except ImportError as e:
 print("\n" + "=" * 60)
 print("Demo Complete!")
 print("=" * 60)
-print(f"\nCheck the output directory for generated visualizations:")
+print("\nCheck the output directory for generated visualizations:")
 print(f"   {output_dir}")

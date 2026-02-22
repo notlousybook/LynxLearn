@@ -56,7 +56,7 @@ X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(
 )
 
 print(f"   Data shape: X={X_reg.shape}, y={y_reg.shape}")
-print(f"   True function: y = 3x + 5")
+print("   True function: y = 3x + 5")
 
 # Create simple neural network (single layer for linear regression)
 model_reg = Sequential([Dense(1, input_shape=(1,))])
@@ -76,7 +76,7 @@ y_pred_reg = model_reg.predict(X_test_reg).flatten()
 mse = metrics.mse(y_test_reg, y_pred_reg)
 r2 = metrics.r2_score(y_test_reg, y_pred_reg)
 
-print(f"\n   Results:")
+print("\n   Results:")
 print(f"   - Final Loss: {history_reg['loss'][-1]:.6f}")
 print(f"   - Test MSE: {mse:.6f}")
 print(f"   - Test R²: {r2:.6f}")
@@ -100,7 +100,7 @@ X_train_sin, X_test_sin, y_train_sin, y_test_sin = train_test_split(
 )
 
 print(f"   Data shape: X={X_sin.shape}, y={y_sin.shape}")
-print(f"   True function: y = sin(x) + noise")
+print("   True function: y = sin(x) + noise")
 
 # Create MLP with hidden layers
 model_mlp = Sequential(
@@ -128,7 +128,7 @@ y_pred_sin = model_mlp.predict(X_test_sin).flatten()
 mse_sin = metrics.mse(y_test_sin, y_pred_sin)
 r2_sin = metrics.r2_score(y_test_sin, y_pred_sin)
 
-print(f"\n   Results:")
+print("\n   Results:")
 print(f"   - Initial Loss: {history_mlp['loss'][0]:.6f}")
 print(f"   - Final Loss: {history_mlp['loss'][-1]:.6f}")
 print(f"   - Test MSE: {mse_sin:.6f}")
@@ -171,7 +171,7 @@ history_xor = model_xor.train(X_xor, y_xor, epochs=500, batch_size=4, verbose=0)
 y_pred_xor = model_xor.predict(X_xor)
 y_pred_classes = (y_pred_xor > 0.5).astype(int)
 
-print(f"\n   Results:")
+print("\n   Results:")
 print(f"   - Final Loss: {history_xor['loss'][-1]:.6f}")
 print(f"   - Predictions: {y_pred_xor.flatten().round(3).tolist()}")
 print(f"   - Predicted Classes: {y_pred_classes.flatten().tolist()}")
@@ -247,12 +247,12 @@ y_pred_classes_multi = np.argmax(y_pred_multi, axis=1)
 y_true_classes_multi = np.argmax(y_test_multi, axis=1)
 accuracy_multi = np.mean(y_pred_classes_multi == y_true_classes_multi)
 
-print(f"\n   Results:")
+print("\n   Results:")
 print(f"   - Final Loss: {history_multi['loss'][-1]:.6f}")
 print(f"   - Test Accuracy: {accuracy_multi * 100:.1f}%")
 
 # Show some predictions
-print(f"\n   Sample Predictions (first 5):")
+print("\n   Sample Predictions (first 5):")
 print(f"   {'True Class':<12} {'Predicted':<12} {'Confidence':<12}")
 print("   " + "-" * 36)
 for i in range(5):
@@ -333,7 +333,7 @@ y_loss[::10] += np.random.randn(10) * 10
 y_loss = y_loss.reshape(-1, 1)
 
 print(f"   Data shape: X={X_loss.shape}, y={y_loss.shape}")
-print(f"   Added outliers: every 10th sample")
+print("   Added outliers: every 10th sample")
 
 losses = {
     "MSE": MeanSquaredError(),
@@ -391,7 +391,7 @@ history_val = model_val.train(
     X_val, y_val, epochs=50, batch_size=32, validation_split=0.2, verbose=0
 )
 
-print(f"\n   Training History:")
+print("\n   Training History:")
 print(f"   - Initial Train Loss: {history_val['loss'][0]:.4f}")
 print(f"   - Final Train Loss: {history_val['loss'][-1]:.4f}")
 print(f"   - Initial Val Loss: {history_val['val_loss'][0]:.4f}")
@@ -399,9 +399,9 @@ print(f"   - Final Val Loss: {history_val['val_loss'][-1]:.4f}")
 
 # Check for overfitting
 if history_val["val_loss"][-1] > history_val["loss"][-1] * 1.5:
-    print(f"   - Status: Potential overfitting detected")
+    print("   - Status: Potential overfitting detected")
 else:
-    print(f"   - Status: Good generalization")
+    print("   - Status: Good generalization")
 
 
 # ============================================
@@ -415,7 +415,7 @@ print("=" * 70)
 X_init = np.random.randn(200, 20)
 y_init = np.sum(X_init[:, :10], axis=1, keepdims=True)
 
-print(f"   Deep network (5 hidden layers)")
+print("   Deep network (5 hidden layers)")
 print(f"   Data shape: X={X_init.shape}")
 
 initializers = {

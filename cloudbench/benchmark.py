@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import gc
+import sys
 import time
 import warnings
 from typing import Any, Callable, Dict, List, Tuple
@@ -20,6 +21,47 @@ import numpy as np
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
+
+# Try to import psutil for memory detection
+try:
+    import psutil
+
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
+
+def get_available_memory_gb() -> float:
+    """Get available system memory in GB."""
+    if PSUTIL_AVAILABLE:
+        return psutil.virtual_memory().available / (1024**3)
+    return 4.0  # Default assumption if psutil not available
+
+
+def adjust_configs_for_memory(
+    configs: List[Tuple[str, int, int]], max_memory_gb: float
+) -> List[Tuple[str, int, int]]:
+    """Adjust benchmark configs based on available memory."""
+    # Memory estimation: each sample with n features uses ~8*n bytes
+    # We need multiple copies, so multiply by safety factor
+    safety_factor = 10
+    max_bytes = max_memory_gb * (1024**3) * 0.5  # Use at most 50% of memory
+
+    adjusted = []
+    for name, n_samples, n_features in configs:
+        est_memory = n_samples * n_features * 8 * safety_factor
+        if est_memory < max_bytes:
+            adjusted.append((name, n_samples, n_features))
+        else:
+            # Scale down to fit memory
+            scale = max_bytes / est_memory
+            new_samples = max(100, int(n_samples * (scale**0.5)))
+            new_features = max(5, int(n_features * (scale**0.5)))
+            adjusted.append(
+                (f"{name} (adjusted for memory)", new_samples, new_features)
+            )
+    return adjusted
+
 
 # =============================================================================
 # Try importing libraries - using PIP-INSTALLED packages
@@ -107,14 +149,52 @@ def generate_data(
     n_features: int,
     noise: float = 0.1,
     seed: int = 42,
+    true_weights: np.ndarray = None,
+    true_bias: float = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Generate synthetic regression data with known ground truth."""
+    """Generate synthetic regression data with known ground truth.
+
+    If true_weights and true_bias are provided, use them instead of generating new ones.
+    This ensures train and test data share the same underlying relationship.
+    """
     rng = np.random.RandomState(seed)
     X = rng.randn(n_samples, n_features)
+    if true_weights is None:
+        true_weights = rng.randn(n_features)
+    if true_bias is None:
+        true_bias = 5.0
+    y = X @ true_weights + true_bias + rng.randn(n_samples) * noise
+    return X, y, true_weights, true_bias
+
+
+def generate_train_test_split(
+    n_samples: int,
+    n_features: int,
+    train_ratio: float = 0.8,
+    noise: float = 0.1,
+    seed: int = 42,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Generate train/test split with the SAME underlying relationship.
+
+    This is critical for valid benchmarks - train and test must share
+    the same true_weights and true_bias.
+    """
+    # Generate the underlying relationship once
+    rng = np.random.RandomState(seed)
     true_weights = rng.randn(n_features)
     true_bias = 5.0
-    y = X @ true_weights + true_bias + rng.randn(n_samples) * noise
-    return X, y, true_weights
+
+    # Generate all data
+    X, y, _, _ = generate_data(
+        n_samples, n_features, noise, seed + 1, true_weights, true_bias
+    )
+
+    # Split into train/test
+    n_train = int(n_samples * train_ratio)
+    X_train, X_test = X[:n_train], X[n_train:]
+    y_train, y_test = y[:n_train], y[n_train:]
+
+    return X_train, y_train, X_test, y_test
 
 
 def benchmark_lynxlearn_ols(X_train, y_train, X_test, y_test) -> Dict:
@@ -361,15 +441,17 @@ def run_single_benchmark(
     seed: int = 42,
 ) -> List[Dict]:
     """Run a single benchmark configuration."""
-    print(f"\n{'=' * 70}")
+    print(f"{'=' * 70}")
     print(f"Benchmark: {name}")
     print(f"{'=' * 70}")
     print(f"Data: {n_samples:,} samples x {n_features} features")
     print("-" * 70)
 
-    # Generate data
-    X_train, y_train, _ = generate_data(int(n_samples * 0.8), n_features, seed=seed)
-    X_test, y_test, _ = generate_data(int(n_samples * 0.2), n_features, seed=seed + 1)
+    # Generate data with SAME underlying relationship for train/test
+    # This is critical - different seeds would create different relationships!
+    X_train, y_train, X_test, y_test = generate_train_test_split(
+        n_samples, n_features, train_ratio=0.8, seed=seed
+    )
 
     results = []
 
@@ -423,9 +505,10 @@ def run_nn_benchmark(
     print(f"Data: {n_samples:,} samples x {n_features} features")
     print("-" * 70)
 
-    # Generate data
-    X_train, y_train, _ = generate_data(int(n_samples * 0.8), n_features, seed=seed)
-    X_test, y_test, _ = generate_data(int(n_samples * 0.2), n_features, seed=seed + 1)
+    # Generate data with SAME underlying relationship for train/test
+    X_train, y_train, X_test, y_test = generate_train_test_split(
+        n_samples, n_features, train_ratio=0.8, seed=seed
+    )
 
     results = []
 
@@ -548,6 +631,10 @@ def main():
     # Run benchmarks
     all_results = {}
 
+    # Detect available memory and adjust configs accordingly
+    available_mem = get_available_memory_gb()
+    print(f"\nAvailable Memory: {available_mem:.1f} GB")
+
     if args.tiny:
         configs = [
             ("Tiny (100 x 5)", 100, 5),
@@ -564,6 +651,13 @@ def main():
             ("Small (1000 x 10)", 1000, 10),
             ("Medium (5000 x 20)", 5000, 20),
         ]
+
+    # Adjust configs based on available memory
+    if available_mem < 4.0:
+        print(
+            f"[!] Low memory detected ({available_mem:.1f}GB), reducing config sizes..."
+        )
+        configs = adjust_configs_for_memory(configs, available_mem)
 
     for config_name, n_samples, n_features in configs:
         results = run_single_benchmark(config_name, n_samples, n_features)

@@ -570,55 +570,47 @@ class LBFGSLinearRegression:
         self : LBFGSLinearRegression
             Fitted model
         """
-        X = np.asarray(X, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64)
+        from scipy.optimize import minimize as scipy_minimize
 
-        if y.ndim == 1:
-            y = y.reshape(-1, 1)
+        X = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64).ravel()  # Ensure 1D
 
         n_samples, n_features = X.shape
 
         # Add bias term
-        X_bias = self._add_bias(X)
+        X_bias = np.column_stack([X, np.ones(n_samples)])
 
-        def loss(params):
-            pred = X_bias @ params
-            return 0.5 * np.mean((y - pred) ** 2)
-
-        def grad(params):
+        def loss_and_grad(params):
+            """Compute loss and gradient together for efficiency."""
             pred = X_bias @ params
             error = pred - y
-            return (X_bias.T @ error) / n_samples
+            loss = 0.5 * np.mean(error**2)
+            grad = (X_bias.T @ error) / n_samples
+            return loss, grad
 
         # Initialize weights
-        params0 = np.zeros((n_features + 1, y.shape[1]))
+        params0 = np.zeros(n_features + 1)
 
-        # Run L-BFGS for each output
-        optimizer = LBFGS(
-            memory_size=self.memory_size,
-            max_iter=self.max_iter,
-            tol=self.tol,
-            verbose=self.verbose,
+        # Use scipy's L-BFGS-B optimizer (well-tested and reliable)
+        result = scipy_minimize(
+            fun=lambda p: loss_and_grad(p)[0],
+            x0=params0,
+            method="L-BFGS-B",
+            jac=lambda p: loss_and_grad(p)[1],
+            options={
+                "maxiter": self.max_iter,
+                "gtol": self.tol,
+                "disp": self.verbose,
+            },
         )
 
-        params_opt = np.zeros((n_features + 1, y.shape[1]))
-        for j in range(y.shape[1]):
-
-            def loss_j(p):
-                return loss(p.reshape(-1, 1)) if p.ndim == 1 else loss(p)
-
-            def grad_j(p):
-                g = grad(p.reshape(-1, 1)) if p.ndim == 1 else grad(p)
-                return g[:, 0] if g.ndim > 1 else g
-
-            p_opt, _, info = optimizer.minimize(loss_j, grad_j, params0[:, j])
-            params_opt[:, j] = p_opt
-            self.n_iter_ = max(self.n_iter_, info["iterations"])
-            self.converged_ = info["converged"]
+        params_opt = result.x
+        self.n_iter_ = result.nit
+        self.converged_ = result.success
 
         # Extract weights and bias
         self.weights = params_opt[:-1]
-        self.bias = params_opt[-1, 0] if y.shape[1] == 1 else params_opt[-1]
+        self.bias = params_opt[-1]
 
         return self
 

@@ -264,9 +264,11 @@ class Sequential(BaseNeuralNetwork):
 
     def _get_optimizer(self, name: str, **kwargs) -> BaseOptimizer:
         """Get optimizer instance from string name."""
+        from lynxlearn.neural_network.optimizers import Adam
 
-        optimizers = {
+        optimizers: Dict[str, type] = {
             "sgd": SGD,
+            "adam": Adam,
         }
 
         name_lower = name.lower()
@@ -275,11 +277,27 @@ class Sequential(BaseNeuralNetwork):
                 f"Unknown optimizer: '{name}'. Available: {list(optimizers.keys())}"
             )
 
-        # Extract optimizer-specific kwargs
+        # Extract learning rate
         lr = kwargs.get("learning_rate", kwargs.get("lr", 0.01))
-        momentum = kwargs.get("momentum", 0.0)
 
-        return optimizers[name_lower](learning_rate=lr, momentum=momentum)
+        # Handle optimizer-specific kwargs
+        if name_lower == "adam":
+            # Adam-specific parameters with sensible defaults
+            beta_1 = kwargs.get("beta_1", 0.9)
+            beta_2 = kwargs.get("beta_2", 0.999)
+            epsilon = kwargs.get("epsilon", 1e-7)
+            amsgrad = kwargs.get("amsgrad", False)
+            return optimizers[name_lower](
+                learning_rate=lr,
+                beta_1=beta_1,
+                beta_2=beta_2,
+                epsilon=epsilon,
+                amsgrad=amsgrad,
+            )
+        else:
+            # SGD-specific parameters
+            momentum = kwargs.get("momentum", 0.0)
+            return optimizers[name_lower](learning_rate=lr, momentum=momentum)
 
     def _get_loss(self, name: str, **kwargs) -> BaseLoss:
         """Get loss instance from string name."""
@@ -393,9 +411,13 @@ class Sequential(BaseNeuralNetwork):
                 "Model must be compiled before training. Call model.compile() first."
             )
 
-        # Convert inputs to numpy arrays
-        X = np.asarray(X, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64)
+        # Convert inputs to numpy arrays, respecting first layer's dtype
+        if self._layers and hasattr(self._layers[0], "dtype"):
+            target_dtype = self._layers[0].dtype
+        else:
+            target_dtype = np.float64
+        X = np.asarray(X, dtype=target_dtype)
+        y = np.asarray(y, dtype=target_dtype)
 
         # Reshape y if needed
         if y.ndim == 1:
@@ -560,7 +582,12 @@ class Sequential(BaseNeuralNetwork):
         --------
         >>> predictions = model.predict(X_test)
         """
-        X = np.asarray(X, dtype=np.float64)
+        # Respect the first layer's dtype if available
+        if self._layers and hasattr(self._layers[0], "dtype"):
+            target_dtype = self._layers[0].dtype
+        else:
+            target_dtype = np.float64
+        X = np.asarray(X, dtype=target_dtype)
 
         # Build model if not built
         if not self._built:
@@ -812,14 +839,17 @@ class Sequential(BaseNeuralNetwork):
             save_dict["layer_configs"].append(layer.get_config())
 
         if self._optimizer is not None:
-            save_dict["optimizer_config"] = self._optimizer.get_config()
+            opt_config = self._optimizer.get_config()
+            # Add class name for proper deserialization
+            opt_config["class_name"] = self._optimizer.__class__.__name__
+            save_dict["optimizer_config"] = opt_config
             save_dict["optimizer_state"] = self._optimizer.get_state()
 
         # Save as npz file
         # Convert nested dicts to arrays for npz compatibility
         np.savez(filepath, **self._flatten_dict(save_dict))
 
-    def _flatten_dict(self, d: Dict, parent_key: str = "", sep: str = "_") -> Dict:
+    def _flatten_dict(self, d: Dict, parent_key: str = "", sep: str = ".") -> Dict:
         """Flatten nested dictionary for saving."""
         items = []
         for k, v in d.items():
@@ -830,13 +860,135 @@ class Sequential(BaseNeuralNetwork):
                 for i, item in enumerate(v):
                     if isinstance(item, dict):
                         items.extend(
-                            self._flatten_dict(item, f"{new_key}_{i}", sep).items()
+                            self._flatten_dict(item, f"{new_key}{sep}{i}", sep).items()
                         )
                     else:
-                        items.append((f"{new_key}_{i}", item))
+                        items.append((f"{new_key}{sep}{i}", item))
             else:
                 items.append((new_key, v))
         return dict(items)
+
+    @staticmethod
+    def _convert_value(value):
+        """
+        Convert numpy arrays to Python native types where appropriate.
+
+        Parameters
+        ----------
+        value : any
+            Value to convert
+
+        Returns
+        -------
+        converted : any
+            Python native type if scalar numpy array, otherwise original value
+        """
+        import numpy as np
+
+        if isinstance(value, np.ndarray):
+            # Convert scalar or single-element arrays to Python types
+            if value.ndim == 0 or (value.ndim == 1 and len(value) == 1):
+                return value.item()
+        return value
+
+    @staticmethod
+    def _unflatten_dict(d: Dict, sep: str = ".") -> Dict:
+        """
+        Unflatten a dictionary that was flattened with _flatten_dict.
+
+        Parameters
+        ----------
+        d : dict
+            Flattened dictionary
+        sep : str
+            Separator used during flattening
+
+        Returns
+        -------
+        unflattened : dict
+            Nested dictionary structure
+        """
+        result = {}
+
+        for key, value in d.items():
+            parts = key.split(sep)
+            current = result
+
+            i = 0
+            while i < len(parts) - 1:
+                part = parts[i]
+                next_part = parts[i + 1] if i + 1 < len(parts) else None
+
+                if part not in current:
+                    # Determine if this should be a list or dict
+                    if next_part and next_part.isdigit():
+                        current[part] = []
+                    else:
+                        current[part] = {}
+
+                # Navigate deeper
+                if isinstance(current[part], list):
+                    # Handle list index
+                    if next_part and next_part.isdigit():
+                        idx = int(next_part)
+                        # Extend list if needed
+                        while len(current[part]) <= idx:
+                            current[part].append({})
+                        current = current[part][idx]
+                        i += 2  # Skip both the list key and the index
+                        continue
+                    else:
+                        current = current[part]
+                else:
+                    current = current[part]
+
+                i += 1
+
+            # Set the final value (convert numpy arrays to Python types)
+            final_key = parts[-1]
+            converted_value = Sequential._convert_value(value)
+            if isinstance(current, list):
+                if final_key.isdigit():
+                    idx = int(final_key)
+                    while len(current) <= idx:
+                        current.append(None)
+                    current[idx] = converted_value
+                else:
+                    # Append to list
+                    current.append(converted_value)
+            else:
+                current[final_key] = converted_value
+
+        return result
+
+    @staticmethod
+    def _get_layer_registry() -> Dict[str, type]:
+        """
+        Get the layer registry mapping class names to layer classes.
+
+        Returns
+        -------
+        registry : dict
+            Dictionary mapping layer class names to layer classes
+        """
+        # Import here to avoid circular imports
+        from lynxlearn.neural_network.layers import (
+            Dense,
+            DenseBF16,
+            DenseFloat16,
+            DenseFloat32,
+            DenseFloat64,
+            DenseMixedPrecision,
+        )
+
+        return {
+            "Dense": Dense,
+            "DenseFloat16": DenseFloat16,
+            "DenseFloat32": DenseFloat32,
+            "DenseFloat64": DenseFloat64,
+            "DenseBF16": DenseBF16,
+            "DenseMixedPrecision": DenseMixedPrecision,
+        }
 
     @classmethod
     def load(cls, filepath: str) -> "Sequential":
@@ -856,18 +1008,112 @@ class Sequential(BaseNeuralNetwork):
         Examples
         --------
         >>> model = Sequential.load('my_model.npz')
-        """
-        np.load(filepath, allow_pickle=True)
 
-        # Reconstruct model
-        # This is a simplified version - full implementation would
-        # parse the saved configs and recreate layers
+        Notes
+        -----
+        The loaded model will have the same architecture, weights,
+        optimizer configuration, and optimizer state as the saved model.
+        """
+        # Load the npz file
+        data = np.load(filepath, allow_pickle=True)
+
+        # Convert to regular dict
+        flat_dict = {key: data[key] for key in data.files}
+
+        # Unflatten the dictionary
+        save_dict = cls._unflatten_dict(flat_dict)
+
+        # Create new model
         model = cls()
 
-        # Load optimizer state if available
-        # (simplified - full implementation would restore full optimizer)
+        # Get layer registry
+        layer_registry = cls._get_layer_registry()
+
+        # Reconstruct layers from configs
+        layer_configs = save_dict.get("layer_configs", [])
+        layer_weights = save_dict.get("layer_weights", [])
+
+        for i, config in enumerate(layer_configs):
+            # Get the layer class name
+            class_name = config.get("class_name", "Dense")
+
+            # Get the layer class
+            if class_name not in layer_registry:
+                raise ValueError(
+                    f"Unknown layer type: '{class_name}'. "
+                    f"Available: {list(layer_registry.keys())}"
+                )
+
+            layer_class = layer_registry[class_name]
+
+            # Create layer from config
+            layer = layer_class.from_config(config)
+
+            # Add layer to model
+            model.add(layer)
+
+        # Build the model and set weights
+        if model._layers:
+            # Build model with a dummy input to initialize shapes
+            # The actual weights will be set from saved data
+            for i, layer in enumerate(model._layers):
+                if i < len(layer_weights):
+                    weights_dict = layer_weights[i]
+                    if weights_dict:
+                        # Set weights directly - this also builds the layer
+                        layer.set_params(weights_dict)
+                        layer.built = True
+
+            model._built = True
+
+        # Restore optimizer
+        optimizer_config = save_dict.get("optimizer_config")
+        optimizer_state = save_dict.get("optimizer_state")
+
+        if optimizer_config is not None:
+            # Get optimizer class from config
+            optimizer_class_name = optimizer_config.get("class_name", "SGD")
+            optimizer_registry = cls._get_optimizer_registry()
+
+            if optimizer_class_name in optimizer_registry:
+                optimizer_class = optimizer_registry[optimizer_class_name]
+                # Remove class_name from config before passing to from_config
+                config_without_class = {
+                    k: v for k, v in optimizer_config.items() if k != "class_name"
+                }
+                model._optimizer = optimizer_class.from_config(config_without_class)
+
+                # Restore optimizer state
+                if optimizer_state is not None and model._optimizer is not None:
+                    model._optimizer.set_state(optimizer_state)
+
+        model._is_compiled = model._optimizer is not None
 
         return model
+
+    @staticmethod
+    def _get_optimizer_registry() -> Dict[str, type]:
+        """
+        Get the optimizer registry mapping class names to optimizer classes.
+
+        Returns
+        -------
+        registry : dict
+            Dictionary mapping optimizer class names to optimizer classes
+        """
+        from lynxlearn.neural_network.optimizers import SGD
+
+        registry: Dict[str, type] = {"SGD": SGD}
+
+        # Try to import Adam if available
+        try:
+            from lynxlearn.neural_network.optimizers import Adam
+
+            registry["Adam"] = Adam
+        except ImportError:
+            pass
+
+        return registry
 
     def get_config(self) -> Dict[str, Any]:
         """

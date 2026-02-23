@@ -29,7 +29,7 @@ Usage:
 >>> predictions = model.predict(X_test)
 """
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -500,6 +500,10 @@ class FastLasso:
         # For coordinate descent: we need X_j^T X_j and X_j^T r
         X_col_norms = np.sum(X**2, axis=0)  # ||X_j||^2
 
+        # Initialize residual vector - maintain incrementally for efficiency
+        # This avoids O(n_features) matrix-vector multiply per coordinate
+        residuals = y - X @ coef - intercept
+
         # Coordinate descent iterations
         for iteration in range(self.max_iter):
             coef_old = coef.copy()
@@ -509,20 +513,29 @@ class FastLasso:
                 if X_col_norms[j] == 0:
                     continue
 
-                # Compute residual without feature j
-                residual = y - X @ coef - intercept + X[:, j] * coef[j]
+                # Add back the contribution of feature j to residual
+                # This gives residual without feature j's contribution
+                residuals += X[:, j] * coef[j]
 
                 # Compute the partial residual correlation
-                rho_j = X[:, j] @ residual
+                rho_j = X[:, j] @ residuals
 
-                # Apply soft thresholding
-                coef[j] = (
+                # Apply soft thresholding to get new coefficient
+                coef_new = (
                     self._soft_threshold(rho_j, self.alpha * n_samples) / X_col_norms[j]
                 )
 
+                # Update residual with new coefficient
+                residuals -= X[:, j] * coef_new
+
+                # Store new coefficient
+                coef[j] = coef_new
+
             # Update intercept
             if self.fit_intercept:
-                intercept = np.mean(y - X @ coef)
+                intercept = np.mean(residuals)
+                # Update residuals with new intercept
+                residuals = y - X @ coef - intercept
 
             # Check convergence
             coef_change = np.max(np.abs(coef - coef_old))
@@ -562,7 +575,11 @@ class FastSGDRegressor:
     Parameters
     ----------
     learning_rate : float, default=0.01
-        Learning rate for SGD.
+        Learning rate for SGD. When adaptive_lr=True, this is automatically
+        scaled by the inverse of the maximum feature norm to prevent divergence.
+    adaptive_lr : bool, default=True
+        Whether to automatically scale the learning rate based on feature scale.
+        This is recommended for unnormalized data and matches scikit-learn's behavior.
     batch_size : int, default=32
         Mini-batch size.
     max_epochs : int, default=100
@@ -613,6 +630,7 @@ class FastSGDRegressor:
         use_numba: bool = True,
         momentum: float = 0.0,
         verbose: bool = False,
+        adaptive_lr: bool = True,
     ):
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -622,6 +640,7 @@ class FastSGDRegressor:
         self.use_numba = use_numba
         self.momentum = momentum
         self.verbose = verbose
+        self.adaptive_lr = adaptive_lr
 
         self.coef_: Optional[np.ndarray] = None
         self.intercept_: float = 0.0
@@ -643,13 +662,30 @@ class FastSGDRegressor:
         self.n_features_in_ = n_features
         batch_size = min(self.batch_size, n_samples)
 
+        # Compute adaptive learning rate based on feature scale
+        # This prevents divergence when features have large magnitudes
+        if self.adaptive_lr:
+            X_col_norms = np.sqrt(np.sum(X**2, axis=0))
+            max_norm = (
+                np.max(X_col_norms[X_col_norms > 0]) if np.any(X_col_norms > 0) else 1.0
+            )
+            # Scale learning rate by inverse of max column norm
+            # This is what scikit-learn's SGDRegressor does internally
+            effective_lr = self.learning_rate / max_norm
+            if self.verbose:
+                print(
+                    f"Adaptive LR: {self.learning_rate} / {max_norm:.2f} = {effective_lr:.6f}"
+                )
+        else:
+            effective_lr = self.learning_rate
+
         # Choose solver
         if self.use_numba and NUMBA_AVAILABLE:
             # Use Numba-optimized version
             self.coef_, self.intercept_, self.n_iter_ = solve_sgd_numba(
                 X,
                 y,
-                learning_rate=self.learning_rate,
+                learning_rate=effective_lr,
                 batch_size=batch_size,
                 max_epochs=self.max_epochs,
                 tol=self.tol,
@@ -662,7 +698,7 @@ class FastSGDRegressor:
             self.coef_, self.intercept_, self.n_iter_ = solve_sgd(
                 X,
                 y,
-                learning_rate=self.learning_rate,
+                learning_rate=effective_lr,
                 batch_size=batch_size,
                 max_epochs=self.max_epochs,
                 tol=self.tol,

@@ -117,22 +117,21 @@ if NUMBA_AVAILABLE:
     def _jit_linear_backward(
         grad_output: np.ndarray, x: np.ndarray, weights: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """JIT-compiled backward pass for linear layer."""
+        """JIT-compiled backward pass for linear layer.
+
+        Uses BLAS-optimized matrix operations instead of explicit loops.
+        The @ operator leverages highly optimized BLAS routines (dgemm)
+        which outperform explicit parallel loops for matrix operations.
+        """
         batch_size = x.shape[0]
+
         # Gradient for weights: X.T @ grad_output / batch_size
-        grad_weights = np.zeros_like(weights)
-        for j in prange(weights.shape[1]):
-            for i in range(weights.shape[0]):
-                for b in range(batch_size):
-                    grad_weights[i, j] += x[b, i] * grad_output[b, j]
-                grad_weights[i, j] /= batch_size
+        # BLAS dgemm call - much faster than explicit nested loops
+        grad_weights = (x.T @ grad_output) / batch_size
 
         # Gradient for bias: mean(grad_output, axis=0)
-        grad_bias = np.zeros(weights.shape[1])
-        for j in range(weights.shape[1]):
-            for b in range(batch_size):
-                grad_bias[j] += grad_output[b, j]
-            grad_bias[j] /= batch_size
+        # Vectorized reduction is faster than explicit loop
+        grad_bias = np.sum(grad_output, axis=0) / batch_size
 
         # Gradient for input: grad_output @ W.T
         grad_input = grad_output @ weights.T
@@ -1041,12 +1040,13 @@ class Dense(BaseLayer):
     def get_config(self) -> Dict[str, Any]:
         """Get layer configuration for serialization."""
         config = {
+            "class_name": self.__class__.__name__,
             "units": self.units,
             "activation": self._activation_name,
             "activation_params": self._activation_params,
             "use_bias": self.use_bias,
-            "dtype": str(self._dtype),
-            "compute_dtype": str(self._compute_dtype),
+            "dtype": np.dtype(self._dtype).name,
+            "compute_dtype": np.dtype(self._compute_dtype).name,
         }
 
         # Add initializer info

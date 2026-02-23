@@ -1,23 +1,53 @@
+# LynxLearn Benchmark Explanation
+
+## Why We Claim Faster Performance
+
+LynxLearn achieves competitive or faster performance through several optimization techniques that are standard practice in the scientific Python ecosystem.
+
+### 1. Multiple Solver Backends
+
+Different data sizes require different solving strategies. LynxLearn automatically selects the best solver:
+
+- **lstsq** (LAPACK direct solve): Fastest for small data (<10K samples)
+- **Conjugate Gradient (CG)**: Optimal for medium data (10K-1M samples) - O(n) memory
+- **L-BFGS**: Best for large data (100K-10M samples) - quasi-Newton method
+- **SGD**: Required for huge data (>1M samples) - stochastic optimization
+
+This is **exactly what scikit-learn does** - auto-selecting solvers based on data size.
+
+### 2. Numba JIT Compilation
+
+When Numba is installed, critical hot paths are JIT-compiled to machine code:
+
+```bash
 pip install numba  # Enables 3-10x speedup for SGD
 ```
 
-**Numba is used by pandas, xarray, and many scientific Python packages.**
+The JIT-compiled functions include:
+- Matrix multiplication
+- Gradient computation with parallel loops
+- Activation functions (ReLU, sigmoid, tanh)
+- Forward and backward passes for Dense layers
+
+**Numba is used by pandas, xarray, scipy, and many scientific Python packages.**
 
 ### 3. No Unnecessary Computation
-The `FastLinearRegression` class skips computing:
+
+The `FastLinearRegression` class skips computing statistical diagnostics by default:
 - t-values, p-values, standard errors
 - Leverage (hat matrix diagonal)
 - Cook's distance
-- VIF, AIC, BIC (unless requested)
+- VIF, AIC, BIC
 
-This is the **same approach** TensorFlow/Keras uses - separate "fast" training from "detailed" analysis.
+This is the **same approach** TensorFlow/Keras uses - separate "fast training" from "detailed analysis."
 
 ### 4. Memory-Efficient Iterative Solvers
+
 Conjugate Gradient only stores:
 - Current solution vector
-- Gradient history (configurable)
+- Gradient history (configurable, typically 10 vectors)
 
-vs. storing full XᵀX matrix for direct solve.
+vs. storing full XᵀX matrix (n_features × n_features) for direct solve.
 
 ---
 
@@ -131,9 +161,9 @@ pip install numba
 
 That's because LynxLearn is **from scratch** and relatively **new**:
 - The codebase was written to be educational (readable NumPy)
-- The `_fast` module with optimizations was added later
+- The `_fast` module with optimizations was added recently
 - Some features may not be well-documented yet
-- Claude (and other AI assistants) may not have seen the new code
+- AI assistants may not have indexed the new code yet
 
 **Don't worry - the code is correct and the benchmarks prove it.**
 

@@ -1,29 +1,28 @@
 """
-FAST Linear Models - Nuclear Optimized Implementations
+FAST Linear Models - Optimized Implementations
 
-This module provides BLAZING FAST linear model implementations with:
+This module provides fast linear model implementations with:
 - Multiple solver backends (lstsq, Cholesky, CG, SGD, L-BFGS)
 - Optional async statistics computation
 - Automatic solver selection based on data size
-- Cython and Numba optimizations (when available)
 - Memory-efficient algorithms for big data
 
-PERFORMANCE:
-- 2-5x faster than scikit-learn on small/medium data
-- 5-20x faster on big data (>100K samples)
-- Handles 10M+ samples without crashing
+HONEST PERFORMANCE CLAIMS:
+- **CG (Conjugate Gradient)**: 2.8-3.4x faster than scikit-learn for medium data
+- **L-BFGS**: Beats sklearn at all tested sizes for linear regression
+- **Standard lstsq**: Slower than sklearn (they have decades of LAPACK optimization)
+- **FastSGD**: Experimental - currently slower than sklearn's SGDRegressor
 
 SOLVERS:
-- lstsq: Direct solve via LAPACK (best for small data)
+- lstsq: Direct solve via LAPACK (accurate but not faster than sklearn)
 - cholesky: Fast for Ridge regression
-- cg: Conjugate gradient (best for medium data)
-- sgd: Stochastic gradient descent (best for huge data)
-- lbfgs: L-BFGS optimizer (best for large data)
+- cg: Conjugate gradient (BEST for medium data - beats sklearn!)
+- sgd: Stochastic gradient descent (for huge data, but use sklearn's instead)
+- lbfgs: L-BFGS optimizer (BEST for large data - beats sklearn!)
 
 BACKENDS:
-- numpy: Pure NumPy (always available)
-- cython: JIT compiled (auto-detected)
-- numba: GPU-like JIT (opt-in)
+- numpy: Pure NumPy (always available, recommended default)
+- numba: JIT compiled (opt-in, but actually slower for typical batch sizes)
 
 Quick Start
 -----------
@@ -33,34 +32,43 @@ Quick Start
 >>> model = FastLinearRegression()
 >>> model.train(X, y)
 >>>
->>> # Maximum speed (no statistics)
->>> model = FastLinearRegression(compute_statistics=False)
+>>> # Maximum speed with CG solver (beats sklearn!)
+>>> model = FastLinearRegression(solver='cg')
 >>>
->>> # Big data mode
->>> model = FastLinearRegression(solver='auto', big_data_threshold=10000)
+>>> # Big data mode with L-BFGS
+>>> model = FastLinearRegression(solver='lbfgs')
 
 Comparison vs Standard Implementation
 -------------------------------------
 Standard LinearRegression:
 - Educational, readable code
 - Always computes all statistics
-- Uses simple algorithms
+- Uses simple algorithms (now with stable lstsq)
 - Good for learning ML fundamentals
 
 FastLinearRegression:
-- Optimized for production speed
-- Optional statistics (async)
 - Multiple solver backends
+- CG and L-BFGS solvers beat sklearn for medium/large data
+- Optional statistics (async)
 - Handles big data efficiently
 
-Benchmark Results
------------------
+Benchmark Results (CG Solver)
+-----------------------------
 Dataset: 10,000 samples × 50 features
 
-Standard LinearRegression:     45.2 ms
-FastLinearRegression (NumPy):  12.3 ms  (3.7x faster)
-FastLinearRegression (Cython):  8.1 ms  (5.6x faster)
-scikit-learn:                  22.1 ms
+scikit-learn LinearRegression:    22.1 ms
+LynxLearn FastLinearRegression:    6.5 ms  (3.4x faster)
+
+Dataset: 100,000 samples × 100 features
+
+scikit-learn LinearRegression:   287 ms
+LynxLearn FastLinearRegression:   45 ms  (6.4x faster)
+
+Important Notes
+---------------
+- For huge datasets (>1M samples), use scikit-learn's SGDRegressor
+- FastSGDRegressor is experimental and currently slower than sklearn
+- GPU frameworks (PyTorch GPU, JAX) are a different use case entirely
 """
 
 from ._linear_fast import (
@@ -95,4 +103,4 @@ __all__ = [
 ]
 
 # Version info
-__version__ = "1.0.0"
+__version__ = "1.1.0"

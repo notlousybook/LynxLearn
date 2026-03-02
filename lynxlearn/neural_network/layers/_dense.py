@@ -11,6 +11,7 @@ A highly customizable dense layer supporting:
 - Mixed precision training
 - Quantization-aware training hooks
 - Numba JIT compilation for 2-4x speedup (when available)
+- HYPER-OPTIMIZED core operations from _core module
 """
 
 from __future__ import annotations
@@ -25,6 +26,50 @@ from ..initializers import (
     get_initializer,
 )
 from ._base import BaseLayer
+
+# Import HYPER-OPTIMIZED core operations for maximum speed
+try:
+    from ..._core import (
+        NUMBA_AVAILABLE as CORE_NUMBA_AVAILABLE,
+    )
+    from ..._core import (
+        ensure_contiguous,
+        fast_elu,
+        fast_elu_backward,
+        fast_gelu,
+        fast_gelu_backward,
+        fast_identity_backward,
+        fast_leaky_relu,
+        fast_leaky_relu_backward,
+        fast_linear_backward,
+        fast_linear_forward,
+        fast_mish,
+        fast_mish_backward,
+        fast_relu,
+        fast_relu_backward,
+        fast_selu,
+        fast_selu_backward,
+        fast_sigmoid,
+        fast_sigmoid_backward,
+        fast_softmax,
+        fast_softmax_backward,
+        fast_softplus,
+        fast_softplus_backward,
+        fast_softsign,
+        fast_softsign_backward,
+        fast_swish,
+        fast_swish_backward,
+        fast_tanh,
+        fast_tanh_backward,
+    )
+    from ..._core import (
+        fast_linear as fast_identity,
+    )
+
+    CORE_OPTIMIZED = True
+except ImportError:
+    CORE_OPTIMIZED = False
+    CORE_NUMBA_AVAILABLE = False
 
 # Try to import bfloat16 support
 try:
@@ -889,8 +934,12 @@ class Dense(BaseLayer):
         self._input_cache = x
 
         # Linear transformation: z = x @ W + b
-        # Use JIT-compiled version if numba is available for 2-4x speedup
-        if NUMBA_AVAILABLE and self.use_bias and _jit_linear_forward is not None:
+        # Use HYPER-OPTIMIZED core functions when available for maximum speed
+        if CORE_OPTIMIZED:
+            z = fast_linear_forward(
+                x, self.weights, self.bias if self.use_bias else None
+            )
+        elif NUMBA_AVAILABLE and self.use_bias and _jit_linear_forward is not None:
             z = _jit_linear_forward(x, self.weights, self.bias)
         else:
             z = x @ self.weights
@@ -900,8 +949,32 @@ class Dense(BaseLayer):
         # Cache pre-activation
         self._z_cache = z
 
-        # Apply activation (use JIT version for common activations)
-        if (
+        # Apply activation (use HYPER-OPTIMIZED core functions when available)
+        if CORE_OPTIMIZED:
+            # Use optimized activation lookup
+            activation_map = {
+                "relu": fast_relu,
+                "sigmoid": fast_sigmoid,
+                "tanh": fast_tanh,
+                "gelu": fast_gelu,
+                "swish": fast_swish,
+                "silu": fast_swish,
+                "mish": fast_mish,
+                "elu": fast_elu,
+                "selu": fast_selu,
+                "softplus": fast_softplus,
+                "softsign": fast_softsign,
+                "linear": fast_identity,
+                "identity": fast_identity,
+                "softmax": fast_softmax,
+                "leaky_relu": fast_leaky_relu,
+            }
+            activation_fn = activation_map.get(self.activation)
+            if activation_fn is not None:
+                output = activation_fn(z)
+            else:
+                output = self._activation_forward(z)
+        elif (
             NUMBA_AVAILABLE
             and self.activation == "relu"
             and _jit_relu_forward is not None
@@ -948,8 +1021,50 @@ class Dense(BaseLayer):
         batch_size = grad_output.shape[0]
         self._inv_batch_size = 1.0 / batch_size
 
-        # Gradient through activation (use JIT version for common activations)
-        if (
+        # Gradient through activation (use HYPER-OPTIMIZED core functions when available)
+        if CORE_OPTIMIZED:
+            # Use optimized activation gradient lookup
+            activation_grad_map = {
+                "relu": fast_relu_backward,
+                "sigmoid": fast_sigmoid_backward,
+                "tanh": fast_tanh_backward,
+                "gelu": fast_gelu_backward,
+                "swish": fast_swish_backward,
+                "silu": fast_swish_backward,
+                "mish": fast_mish_backward,
+                "elu": fast_elu_backward,
+                "selu": fast_selu_backward,
+                "softplus": fast_softplus_backward,
+                "softsign": fast_softsign_backward,
+                "linear": fast_identity_backward,
+                "identity": fast_identity_backward,
+                "softmax": fast_softmax_backward,
+                "leaky_relu": fast_leaky_relu_backward,
+            }
+            activation_grad_fn = activation_grad_map.get(self.activation)
+            if activation_grad_fn is not None:
+                if self.activation in (
+                    "relu",
+                    "gelu",
+                    "swish",
+                    "silu",
+                    "mish",
+                    "elu",
+                    "selu",
+                    "softplus",
+                    "softsign",
+                    "leaky_relu",
+                ):
+                    grad_z = activation_grad_fn(grad_output, self._z_cache)
+                elif self.activation in ("sigmoid", "tanh"):
+                    grad_z = activation_grad_fn(grad_output, self._output_cache)
+                else:
+                    grad_z = activation_grad_fn(grad_output, self._output_cache)
+            else:
+                grad_z = self._activation_backward(
+                    grad_output, self._z_cache, self._output_cache
+                )
+        elif (
             NUMBA_AVAILABLE
             and self.activation == "relu"
             and _jit_relu_backward is not None
@@ -973,8 +1088,21 @@ class Dense(BaseLayer):
             )
 
         # Compute weight gradients: dW = X.T @ grad_z / batch_size
-        # Use JIT-compiled version for parallel gradient computation
-        if NUMBA_AVAILABLE and _jit_linear_backward is not None and self.use_bias:
+        # Use HYPER-OPTIMIZED core functions when available for maximum speed
+        if CORE_OPTIMIZED:
+            # Use optimized linear backward with pre-allocated gradient arrays
+            grad_w, grad_b, grad_input = fast_linear_backward(
+                grad_z,
+                self._input_cache,
+                self.weights,
+                self.grad_weights,  # Pre-allocated output
+                self.grad_bias if self.use_bias else None,  # Pre-allocated output
+                None,
+            )
+            self.grad_weights = grad_w
+            if self.use_bias:
+                self.grad_bias = grad_b
+        elif NUMBA_AVAILABLE and _jit_linear_backward is not None and self.use_bias:
             grad_weights, grad_bias, grad_input = _jit_linear_backward(
                 grad_z, self._input_cache, self.weights
             )

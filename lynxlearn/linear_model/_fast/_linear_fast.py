@@ -32,6 +32,7 @@ Usage:
 from typing import Optional, Union
 
 import numpy as np
+from scipy import linalg
 
 from ._solvers import (
     NUMBA_AVAILABLE,
@@ -47,12 +48,18 @@ from ._solvers import (
 
 class FastLinearRegression:
     """
-    BLAZING FAST Linear Regression using optimized solvers.
+    BLAZING FAST Linear Regression using optimized solvers - HYPER-OPTIMIZED.
 
     Automatically selects the best solver based on data size:
     - Small (<10K samples): Direct LAPACK solve (lstsq)
     - Medium (10K-1M samples): Conjugate Gradient (cg)
     - Large (>1M samples): L-BFGS or SGD
+
+    Optimizations:
+    - Fast path for small data using np.linalg.lstsq directly
+    - In-place operations to minimize memory allocation
+    - Contiguous arrays for cache efficiency
+    - Minimal overhead fit method
 
     Parameters
     ----------
@@ -67,8 +74,8 @@ class FastLinearRegression:
         Whether to fit an intercept term.
     compute_statistics : bool, default=False
         Whether to compute R², MSE, etc. Set False for maximum speed.
-    copy_X : bool, default=True
-        Whether to copy X data.
+    copy_X : bool, default=False
+        Whether to copy X data. Default False for maximum speed.
     big_data_threshold : int, default=10000
         Samples threshold to switch from lstsq to iterative methods.
     huge_data_threshold : int, default=1000000
@@ -96,19 +103,39 @@ class FastLinearRegression:
 
     Performance Tips
     ----------------
-    - Use solver='lstsq' for small data (<10K samples)
-    - Use solver='cg' for medium data (10K-1M samples)
-    - Use solver='lbfgs' for large data (100K-10M samples)
-    - Use solver='sgd' with numba for huge data (>1M samples)
-    - Set compute_statistics=False for maximum speed
+    - Use solver='auto' for automatic selection (recommended)
+    - Set copy_X=False for maximum speed (default)
+    - Set compute_statistics=False for maximum speed (default)
+    - For small data (<10K): auto uses lstsq (fastest)
+    - For medium data (10K-1M): auto uses lbfgs
+    - For huge data (>1M): auto uses sgd
     """
+
+    __slots__ = (
+        "solver",
+        "fit_intercept",
+        "compute_statistics",
+        "copy_X",
+        "big_data_threshold",
+        "huge_data_threshold",
+        "solver_kwargs",
+        "coef_",
+        "intercept_",
+        "n_iter_",
+        "solver_used_",
+        "n_features_in_",
+        "n_samples_",
+        "r2_",
+        "mse_",
+        "rmse_",
+    )
 
     def __init__(
         self,
         solver: str = "auto",
         fit_intercept: bool = True,
         compute_statistics: bool = False,
-        copy_X: bool = True,
+        copy_X: bool = False,  # Changed default to False for speed
         big_data_threshold: int = 10000,
         huge_data_threshold: int = 1000000,
         **solver_kwargs,
@@ -121,7 +148,7 @@ class FastLinearRegression:
         self.huge_data_threshold = huge_data_threshold
         self.solver_kwargs = solver_kwargs
 
-        # Attributes
+        # Attributes - initialized to None/0 for speed
         self.coef_: Optional[np.ndarray] = None
         self.intercept_: float = 0.0
         self.n_iter_: int = 0
@@ -136,7 +163,9 @@ class FastLinearRegression:
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "FastLinearRegression":
         """
-        Fit the linear model.
+        Fit the linear model - HYPER-OPTIMIZED for maximum speed.
+
+        Uses fast path for small data with minimal overhead.
 
         Parameters
         ----------
@@ -150,15 +179,42 @@ class FastLinearRegression:
         self : FastLinearRegression
             Fitted model.
         """
-        X = np.asarray(X, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64).ravel()
+        # FAST PATH: Use contiguous arrays for cache efficiency
+        X = np.ascontiguousarray(X, dtype=np.float64)
+        y = np.ascontiguousarray(y, dtype=np.float64).ravel()
 
+        n_samples, n_features = X.shape
+        self.n_samples_, self.n_features_in_ = n_samples, n_features
+
+        # FAST PATH: For small/medium data, use LAPACK lstsq directly (minimal overhead)
+        # Uses scipy.linalg.lstsq with gelsd driver - faster than numpy for most sizes
+        if self.solver == "auto" and n_samples < self.big_data_threshold:
+            # Direct fast path - skip solver selection overhead
+            if self.fit_intercept:
+                # Add bias column efficiently using pre-allocated array
+                X_bias = np.empty((n_samples, n_features + 1), dtype=np.float64)
+                X_bias[:, :-1] = X
+                X_bias[:, -1] = 1.0
+                # Use scipy.linalg.lstsq with gelsd driver (faster LAPACK routine)
+                result = linalg.lstsq(X_bias, y, lapack_driver="gelsd")
+                self.coef_ = result[0][:-1]
+                self.intercept_ = result[0][-1]
+            else:
+                result = linalg.lstsq(X, y, lapack_driver="gelsd")
+                self.coef_ = result[0]
+                self.intercept_ = 0.0
+            self.solver_used_ = "lstsq"
+
+            # Compute statistics if requested
+            if self.compute_statistics:
+                self._compute_statistics(X, y)
+            return self
+
+        # Copy X if requested (only for non-fast-path)
         if self.copy_X:
             X = X.copy()
 
-        self.n_samples_, self.n_features_in_ = X.shape
-
-        # Select solver
+        # Select solver for larger data or specific solver choice
         if self.solver == "auto":
             coef, intercept, solver_name = solve_auto(
                 X,
@@ -569,8 +625,9 @@ class FastSGDRegressor:
     """
     BLAZING FAST Stochastic Gradient Descent Regressor.
 
-    Uses Numba JIT compilation for maximum speed when available.
-    Falls back to pure NumPy implementation otherwise.
+    Uses vectorized NumPy operations by default (faster than Numba for typical
+    batch sizes). Numba JIT is available but not recommended - see Performance
+    note below.
 
     Parameters
     ----------
@@ -588,8 +645,10 @@ class FastSGDRegressor:
         Convergence tolerance.
     fit_intercept : bool, default=True
         Whether to fit an intercept term.
-    use_numba : bool, default=True
-        Whether to use Numba JIT (if available).
+    use_numba : bool, default=False
+        Whether to use Numba JIT (if available). Default is False because
+        vectorized NumPy is faster for typical batch sizes (32-256) due to
+        BLAS-optimized matrix operations.
     momentum : float, default=0.0
         Momentum coefficient (0 = vanilla SGD). Note: Only supported
         when using numba backend.
@@ -610,27 +669,34 @@ class FastSGDRegressor:
     Examples
     --------
     >>> from lynxlearn.linear_model._fast import FastSGDRegressor
-    >>> model = FastSGDRegressor(learning_rate=0.01, use_numba=True)
+    >>> model = FastSGDRegressor(learning_rate=0.01)
     >>> model.fit(X_train, y_train)
     >>> predictions = model.predict(X_test)
 
     Performance
     -----------
-    With Numba JIT: 3-10x faster than pure NumPy SGD
-    Handles millions of samples efficiently
+    NumPy backend (default): Uses BLAS-optimized X.T @ error, which is faster
+        than Numba explicit loops for typical batch sizes (32-256).
+    Numba backend: Actually SLOWER for typical batch sizes due to JIT overhead
+        and explicit loops being slower than BLAS. Only potentially useful for
+        very large batch sizes (>1000) where parallel overhead is amortized.
+    Handles millions of samples efficiently with gradient clipping for stability.
     """
 
     def __init__(
         self,
         learning_rate: float = 0.01,
         batch_size: int = 32,
-        max_epochs: int = 100,
-        tol: float = 1e-6,
+        max_epochs: int = 1000,  # Changed from 100 to match sklearn default
+        tol: float = 1e-3,  # Changed from 1e-6 to match sklearn default
         fit_intercept: bool = True,
-        use_numba: bool = True,
+        use_numba: bool = False,
         momentum: float = 0.0,
         verbose: bool = False,
         adaptive_lr: bool = True,
+        learning_rate_schedule: str = "invscaling",  # NEW: like sklearn
+        power_t: float = 0.25,  # NEW: for invscaling, matches sklearn
+        early_stopping: bool = True,  # NEW: stop when converged
     ):
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -641,6 +707,9 @@ class FastSGDRegressor:
         self.momentum = momentum
         self.verbose = verbose
         self.adaptive_lr = adaptive_lr
+        self.learning_rate_schedule = learning_rate_schedule
+        self.power_t = power_t
+        self.early_stopping = early_stopping
 
         self.coef_: Optional[np.ndarray] = None
         self.intercept_: float = 0.0
@@ -694,7 +763,7 @@ class FastSGDRegressor:
             )
             self._used_numba = True
         else:
-            # Use pure NumPy version (momentum not supported in solve_sgd)
+            # Use pure NumPy version with learning rate scheduling
             self.coef_, self.intercept_, self.n_iter_ = solve_sgd(
                 X,
                 y,
@@ -704,6 +773,9 @@ class FastSGDRegressor:
                 tol=self.tol,
                 fit_intercept=self.fit_intercept,
                 verbose=self.verbose,
+                learning_rate_schedule=self.learning_rate_schedule,
+                power_t=self.power_t,
+                early_stopping=self.early_stopping,
             )
             self._used_numba = False
 

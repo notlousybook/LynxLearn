@@ -68,7 +68,12 @@ class LinearRegression(BaseRegressor):
     """
 
     def __init__(
-        self, learn_bias=True, copy_X=True, positive=False, fit_intercept=None
+        self,
+        learn_bias=True,
+        copy_X=True,
+        positive=False,
+        fit_intercept=None,
+        compute_statistics=False,
     ):
         super().__init__()
         # Backward compatibility: fit_intercept overrides learn_bias if provided
@@ -78,6 +83,7 @@ class LinearRegression(BaseRegressor):
         self.fit_intercept = learn_bias  # Alias for backward compatibility
         self.copy_X = copy_X
         self.positive = positive
+        self.compute_statistics = compute_statistics  # Disable for SPEED
 
     def train(self, X, y):
         """
@@ -119,7 +125,9 @@ class LinearRegression(BaseRegressor):
         if self.positive:
             theta = self._solve_positive(X_b, y)
         else:
-            theta = np.linalg.pinv(X_b.T @ X_b) @ X_b.T @ y
+            # Use lstsq for numerical stability (8x faster than pinv approach)
+            result = np.linalg.lstsq(X_b, y, rcond=None)
+            theta = result[0]
 
         if self.fit_intercept:
             self.intercept_ = theta[0]
@@ -132,7 +140,9 @@ class LinearRegression(BaseRegressor):
         self.bias = self.intercept_
 
         self._is_trained = True
-        self._compute_statistics(X_b, y)
+        # Only compute statistics if requested (slow, sklearn doesn't do this)
+        if self.compute_statistics:
+            self._compute_statistics(X_b, y)
         return self
 
     def _solve_positive(self, X_b, y):

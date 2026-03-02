@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lynxlearn"
-version = "0.3.1"
+version = "0.3.2"
 description = "A simple, educational machine learning library built from scratch using NumPy"
 readme = "README.md"
 license = {text = "MIT"}
@@ -85,6 +85,7 @@ YouTube = "https://youtube.com/channel/UCBNE8MNvq1XppUmpAs20m4w"
 packages = [
     "lynxlearn",
     "lynxlearn.linear_model",
+    "lynxlearn.linear_model._fast",
     "lynxlearn.model_selection",
     "lynxlearn.metrics",
     "lynxlearn.visualizations",

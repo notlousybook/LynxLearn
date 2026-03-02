@@ -83,6 +83,34 @@ except ImportError:
 
     prange = range
 
+# NOTE: Numba JIT for SGD is actually SLOWER than vectorized NumPy for typical
+# batch sizes (32-256). The parallel overhead and JIT compilation time
+# dominate for small operations. BLAS-optimized matrix multiplications
+# (X.T @ error) are faster than explicit Numba loops. We keep the Numba
+# implementation for experimental purposes but recommend numpy backend.
+
+# Import HYPER-OPTIMIZED core functions for maximum speed
+try:
+    from ..._core import (
+        SCIPY_AVAILABLE as CORE_SCIPY_AVAILABLE,
+    )
+    from ..._core import (
+        ensure_contiguous,
+        fast_cg_solve,
+        fast_cholesky_solve,
+        fast_linear_backward,
+        fast_linear_forward,
+        fast_lstsq,
+        fast_mse_gradient,
+        fast_mse_loss,
+        fast_svd_solve,
+    )
+
+    CORE_OPTIMIZED = True
+except ImportError:
+    CORE_OPTIMIZED = False
+    CORE_SCIPY_AVAILABLE = False
+
 
 # =============================================================================
 # SOLVER: Least Squares (Direct LAPACK)
@@ -376,11 +404,15 @@ def solve_sgd(
     y: np.ndarray,
     learning_rate: float = 0.01,
     batch_size: int = 32,
-    max_epochs: int = 100,
-    tol: float = 1e-6,
+    max_epochs: int = 1000,  # Changed from 100 to match sklearn default
+    tol: float = 1e-3,  # Changed from 1e-6 to match sklearn default
     fit_intercept: bool = True,
     verbose: bool = False,
     shuffle: bool = True,
+    clip_threshold: float = 5.0,  # Increased from 1.0 - less aggressive clipping
+    learning_rate_schedule: str = "invscaling",  # NEW: like sklearn
+    power_t: float = 0.25,  # NEW: for invscaling, matches sklearn default
+    early_stopping: bool = True,  # NEW: stop when converged
 ) -> Tuple[np.ndarray, float, int]:
     """
     Solve linear regression using Stochastic Gradient Descent.
@@ -395,19 +427,25 @@ def solve_sgd(
     y : ndarray of shape (n_samples,)
         Target values.
     learning_rate : float, default=0.01
-        Learning rate (step size).
+        Initial learning rate (eta0).
     batch_size : int, default=32
         Mini-batch size.
-    max_epochs : int, default=100
+    max_epochs : int, default=1000
         Maximum epochs.
-    tol : float, default=1e-6
-        Convergence tolerance.
+    tol : float, default=1e-3
+        Convergence tolerance (matches sklearn default).
     fit_intercept : bool, default=True
         Whether to fit an intercept term.
     verbose : bool, default=False
         Print progress.
     shuffle : bool, default=True
         Shuffle data each epoch.
+    learning_rate_schedule : str, default="invscaling"
+        Learning rate schedule: "constant", "invscaling" (like sklearn).
+    power_t : float, default=0.25
+        Power for invscaling schedule (matches sklearn default).
+    early_stopping : bool, default=True
+        Stop early when converged.
 
     Returns
     -------
@@ -454,10 +492,18 @@ def solve_sgd(
     coef = np.zeros(n_features)
     intercept = 0.0
 
-    # Training loop
+    # Training loop with learning rate scheduling (like sklearn)
     prev_loss = np.inf
+    eta0 = learning_rate  # Initial learning rate
 
     for epoch in range(max_epochs):
+        # Compute current learning rate with schedule (like sklearn)
+        # sklearn uses epoch-based schedule, not per-batch
+        if learning_rate_schedule == "invscaling":
+            # eta = eta0 / pow(epoch + 1, power_t) - sklearn's default schedule
+            current_lr = eta0 / ((epoch + 1) ** power_t)
+        else:
+            current_lr = eta0
         # Shuffle data
         if shuffle:
             indices = np.random.permutation(n_samples)
@@ -485,10 +531,17 @@ def solve_sgd(
             grad_coef = (X_batch.T @ error) / batch_len
             grad_intercept = np.mean(error)
 
-            # Update
-            coef -= learning_rate * grad_coef
+            # Gradient clipping for stability (like sklearn SGDRegressor)
+            grad_norm = np.sqrt(np.sum(grad_coef**2) + grad_intercept**2)
+            if grad_norm > clip_threshold and grad_norm > 0:
+                scale = clip_threshold / grad_norm
+                grad_coef = grad_coef * scale
+                grad_intercept = grad_intercept * scale
+
+            # Update with scheduled learning rate
+            coef -= current_lr * grad_coef
             if fit_intercept:
-                intercept -= learning_rate * grad_intercept
+                intercept -= current_lr * grad_intercept
 
             # Track loss
             epoch_loss += np.sum(error**2)
@@ -497,17 +550,21 @@ def solve_sgd(
         # Average loss
         avg_loss = epoch_loss / n_samples
 
-        # Check convergence
-        if abs(prev_loss - avg_loss) < tol:
-            if verbose:
-                print(f"Converged at epoch {epoch + 1}")
-            return coef, intercept, epoch + 1
+        # Check convergence (with relative tolerance like sklearn)
+        if early_stopping:
+            loss_change = abs(prev_loss - avg_loss)
+            if loss_change < tol or loss_change < tol * abs(prev_loss):
+                if verbose:
+                    print(f"Converged at epoch {epoch + 1}, loss={avg_loss:.6f}")
+                return coef, intercept, epoch + 1
 
         prev_loss = avg_loss
 
         if verbose and (epoch + 1) % 10 == 0:
             print(f"Epoch {epoch + 1}: loss = {avg_loss:.6f}")
 
+    if verbose:
+        print(f"Finished {max_epochs} epochs, final loss={avg_loss:.6f}")
     return coef, intercept, max_epochs
 
 
@@ -658,23 +715,38 @@ if NUMBA_AVAILABLE:
         """Fast matrix multiplication with Numba."""
         return X @ w
 
-    @jit(nopython=True, cache=True, fastmath=True, parallel=True)
+    # NOTE: Removed parallel=True and prange - the thread launch overhead
+    # for small batch sizes (32-256) makes this SLOWER than vectorized NumPy.
+    # BLAS-optimized X.T @ error is faster than explicit loops for typical sizes.
+    # Kept for experimental purposes but numpy backend is recommended.
+    @jit(nopython=True, cache=True)
     def _fast_gradient(
         X: np.ndarray, y: np.ndarray, w: np.ndarray, b: float
     ) -> Tuple[np.ndarray, float]:
-        """Fast gradient computation with Numba."""
+        """Fast gradient computation with Numba.
+
+        Note: For typical batch sizes (32-256), this is actually slower than
+        the vectorized NumPy version (X.T @ error) due to JIT overhead.
+        The parallel version was even slower due to thread launch overhead.
+
+        IMPORTANT: fastmath=True was removed because it caused numerical
+        instability with floating-point accumulations, leading to divergence.
+        """
         n_samples = X.shape[0]
 
         # Compute predictions
         pred = X @ w + b
         error = pred - y
 
-        # Compute gradients
+        # Compute gradients - use regular range (prange overhead too high)
+        # NOTE: This explicit loop is necessary for numba, but is actually
+        # slower than vectorized X.T @ error for typical batch sizes
         grad_w = np.zeros_like(w)
-        for j in prange(len(w)):
+        for j in range(len(w)):
+            accum = 0.0  # Use local accumulator for better numerical stability
             for i in range(n_samples):
-                grad_w[j] += error[i] * X[i, j]
-            grad_w[j] /= n_samples
+                accum += error[i] * X[i, j]
+            grad_w[j] = accum / n_samples
 
         grad_b = np.mean(error)
 
@@ -685,15 +757,20 @@ if NUMBA_AVAILABLE:
         y: np.ndarray,
         learning_rate: float = 0.01,
         batch_size: int = 32,
-        max_epochs: int = 100,
+        max_epochs: int = 1000,  # Changed from 100 to match sklearn default
         tol: float = 1e-6,
         fit_intercept: bool = True,
         verbose: bool = False,
+        clip_threshold: float = 5.0,  # Increased from 1.0 - less aggressive clipping
     ) -> Tuple[np.ndarray, float, int]:
         """
-        SGD with Numba JIT compilation for MAXIMUM SPEED.
+        SGD with Numba JIT compilation.
 
-        2-4x faster than pure NumPy SGD.
+        NOTE: This is actually SLOWER than pure NumPy SGD for typical batch sizes!
+        The JIT overhead and explicit loops are slower than BLAS-optimized
+        vectorized operations (X.T @ error). Use solve_sgd() instead.
+
+        Kept for experimental purposes. The numpy backend is recommended.
         """
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64).ravel()
@@ -725,6 +802,14 @@ if NUMBA_AVAILABLE:
                 grad_coef, grad_intercept = _fast_gradient(
                     X_batch, y_batch, coef, intercept
                 )
+
+                # Gradient clipping for stability (optional, like sklearn)
+                # Only clip if gradient is very large to prevent explosion
+                grad_norm = np.sqrt(np.sum(grad_coef**2) + grad_intercept**2)
+                if grad_norm > clip_threshold and grad_norm > 0:
+                    scale = clip_threshold / grad_norm
+                    grad_coef = grad_coef * scale
+                    grad_intercept = grad_intercept * scale
 
                 # Update
                 coef -= learning_rate * grad_coef

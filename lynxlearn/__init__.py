@@ -63,7 +63,7 @@ See the `examples/` directory for comprehensive usage examples.
 For more information, visit: https://github.com/notlousybook/LynxLearn
 """
 
-__version__ = "0.3.0"
+__version__ = "0.3.2"
 __author__ = "lousybook01"
 
 # Import submodules
